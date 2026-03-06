@@ -1,0 +1,172 @@
+import * as THREE from "../vendor/three/build/three.module.js";
+import { OrbitControls } from "../vendor/three/examples/jsm/controls/OrbitControls.js";
+import { STLLoader } from "../vendor/three/examples/jsm/loaders/STLLoader.js";
+
+const container = document.getElementById("viewer-container");
+const statusElement = document.getElementById("viewer-status");
+const modelButtons = Array.from(document.querySelectorAll(".model-button"));
+
+function setStatus(message, isError = false) {
+  if (!statusElement) {
+    return;
+  }
+  statusElement.textContent = message;
+  statusElement.dataset.state = isError ? "error" : "ok";
+}
+
+function setActiveButton(activeButton) {
+  modelButtons.forEach((button) => {
+    button.classList.toggle("is-active", button === activeButton);
+  });
+}
+
+function initViewer() {
+  if (!container || !statusElement) {
+    return;
+  }
+
+  setStatus("Viewer initializing...");
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xe8eff9);
+
+  const camera = new THREE.PerspectiveCamera(
+    45,
+    container.clientWidth / container.clientHeight,
+    0.1,
+    5000
+  );
+  camera.position.set(150, 100, 150);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  container.appendChild(renderer.domElement);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.target.set(0, 0, 0);
+
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x3f4d60, 1.0);
+  scene.add(hemiLight);
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+  dirLight.position.set(60, 120, 80);
+  scene.add(dirLight);
+
+  const grid = new THREE.GridHelper(220, 22, 0x8ea4c5, 0xc6d4ea);
+  scene.add(grid);
+
+  const loader = new STLLoader();
+  let currentMesh = null;
+
+  function disposeCurrentMesh() {
+    if (!currentMesh) {
+      return;
+    }
+
+    scene.remove(currentMesh);
+    currentMesh.geometry.dispose();
+    currentMesh.material.dispose();
+    currentMesh = null;
+  }
+
+  function frameObject(mesh) {
+    const bounds = new THREE.Box3().setFromObject(mesh);
+    if (bounds.isEmpty()) {
+      return;
+    }
+
+    const size = bounds.getSize(new THREE.Vector3());
+    const center = bounds.getCenter(new THREE.Vector3());
+
+    mesh.position.sub(center);
+
+    const maxSize = Math.max(size.x, size.y, size.z) || 1;
+    const cameraDistance = maxSize * 1.8;
+
+    camera.position.set(cameraDistance, cameraDistance * 0.7, cameraDistance);
+    camera.near = Math.max(maxSize / 2000, 0.05);
+    camera.far = Math.max(maxSize * 30, 1000);
+    camera.updateProjectionMatrix();
+
+    controls.target.set(0, 0, 0);
+    controls.update();
+  }
+
+  function loadModel(modelUrl, modelName, sourceButton) {
+    if (!modelUrl) {
+      setStatus("No model URL provided.", true);
+      return;
+    }
+
+    setStatus(`Loading ${modelName} ...`);
+
+    loader.load(
+      modelUrl,
+      (geometry) => {
+        disposeCurrentMesh();
+        geometry.computeVertexNormals();
+
+        const material = new THREE.MeshStandardMaterial({
+          color: 0x8aa2c8,
+          metalness: 0.1,
+          roughness: 0.7,
+        });
+
+        currentMesh = new THREE.Mesh(geometry, material);
+        scene.add(currentMesh);
+
+        frameObject(currentMesh);
+        setActiveButton(sourceButton);
+        setStatus(`Loaded ${modelName}.`);
+      },
+      undefined,
+      () => {
+        setStatus(`Failed to load ${modelName}.`, true);
+      }
+    );
+  }
+
+  function render() {
+    controls.update();
+    renderer.render(scene, camera);
+    requestAnimationFrame(render);
+  }
+
+  function handleResize() {
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    if (width <= 0 || height <= 0) {
+      return;
+    }
+
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(width, height);
+  }
+
+  window.addEventListener("resize", handleResize);
+
+  modelButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      loadModel(button.dataset.modelUrl, button.dataset.modelName, button);
+    });
+  });
+
+  if (modelButtons.length > 0) {
+    const firstButton = modelButtons[0];
+    loadModel(firstButton.dataset.modelUrl, firstButton.dataset.modelName, firstButton);
+  } else {
+    setStatus("No sample model files found in sample_models.", true);
+  }
+
+  render();
+}
+
+try {
+  initViewer();
+} catch (error) {
+  console.error("Viewer initialization failed.", error);
+  setStatus("Viewer initialization failed. Check browser console for details.", true);
+}

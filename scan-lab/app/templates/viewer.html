@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}scan-lab | Viewer{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h2>Viewer Playground</h2>
+  <p>
+    Select a sample STL file from <code>sample_models/</code> to render it in the three.js viewer.
+  </p>
+
+  <section class="model-list">
+    <h3>Detected sample models</h3>
+    {% if models %}
+    <ul class="model-grid">
+      {% for model in models %}
+      <li>
+        <button
+          type="button"
+          class="model-button"
+          data-model-url="{{ model.url }}"
+          data-model-name="{{ model.name }}"
+        >
+          {{ model.name }}
+        </button>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p>No supported model files found in <code>sample_models/</code>.</p>
+    {% endif %}
+  </section>
+
+  <div id="viewer-container" class="viewer-container"></div>
+  <p id="viewer-status" class="viewer-status">Viewer initializing...</p>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{{ url_for('static', filename='js/viewer.js') }}"></script>
+{% endblock %}
