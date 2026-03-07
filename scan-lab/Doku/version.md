@@ -15,6 +15,11 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.3.3 (2026-03-07)
+- Viewer: Icon zum Ein-/Ausblenden des Gitters in der Toolbar hinzugefuegt.
+- Gitter-Icon als Toggle-Button mit `aria-pressed` umgesetzt.
+- Sichtbarkeit des `GridHelper` wird direkt im Viewer dynamisch geschaltet.
+
 ## 0.3.2 (2026-03-07)
 - Viewer: Toggle-Icon fuer automatische Rotation um den Ursprung hinzugefuegt (Rotation ein/aus).
 - Toggle-Status visuell hervorgehoben und per `aria-pressed` als Schalter umgesetzt.

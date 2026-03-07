@@ -10,6 +10,7 @@ const modelColorResetButton = document.getElementById("model-color-reset");
 const colorPresetButtons = Array.from(document.querySelectorAll(".color-preset"));
 const resetViewButton = document.getElementById("viewer-reset-view");
 const rotationToggleButton = document.getElementById("viewer-toggle-rotation");
+const gridToggleButton = document.getElementById("viewer-toggle-grid");
 const DEFAULT_MODEL_COLOR = "#8aa2c8";
 const AUTO_ROTATE_SPEED = 1.6;
 
@@ -80,6 +81,7 @@ function initViewer() {
   let currentModelColor = new THREE.Color(DEFAULT_MODEL_COLOR);
   let defaultViewState = null;
   let isAutoRotationEnabled = false;
+  let isGridVisible = true;
 
   function setResetViewEnabled(isEnabled) {
     if (!resetViewButton) {
@@ -138,6 +140,24 @@ function initViewer() {
       nextState ? "Automatische Rotation ausschalten" : "Automatische Rotation einschalten"
     );
     rotationToggleButton.title = nextState ? "Rotation aus" : "Rotation ein";
+  }
+
+  function setGridVisibility(visible) {
+    const nextState = Boolean(visible);
+    isGridVisible = nextState;
+    grid.visible = nextState;
+
+    if (!gridToggleButton) {
+      return;
+    }
+
+    gridToggleButton.classList.toggle("is-toggled", nextState);
+    gridToggleButton.setAttribute("aria-pressed", String(nextState));
+    gridToggleButton.setAttribute(
+      "aria-label",
+      nextState ? "Gitter ausblenden" : "Gitter einblenden"
+    );
+    gridToggleButton.title = nextState ? "Gitter aus" : "Gitter ein";
   }
 
   function setActivePreset(colorValue) {
@@ -292,8 +312,15 @@ function initViewer() {
     });
   }
 
+  if (gridToggleButton) {
+    gridToggleButton.addEventListener("click", () => {
+      setGridVisibility(!isGridVisible);
+    });
+  }
+
   setResetViewEnabled(false);
   setAutoRotation(false);
+  setGridVisibility(true);
   applyModelColor(DEFAULT_MODEL_COLOR);
 
   if (modelButtons.length > 0) {
