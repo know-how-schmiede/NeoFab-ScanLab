@@ -115,11 +115,17 @@ body {
   height: 100%;
 }
 
-.viewer-icon-button {
+.viewer-icon-toolbar {
   position: absolute;
   top: 0.8rem;
   right: 0.8rem;
   z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.viewer-icon-button {
   width: 38px;
   height: 38px;
   display: inline-flex;
@@ -147,6 +153,13 @@ body {
   border-color: #0b6dff;
   color: #0b336f;
   background: #ffffff;
+}
+
+.viewer-icon-button.is-toggled,
+.viewer-icon-button[aria-pressed="true"] {
+  border-color: #0b6dff;
+  color: #0b336f;
+  background: #dce9ff;
 }
 
 .viewer-icon-button:disabled {
@@ -300,10 +313,13 @@ body {
   }
 
   .viewer-icon-button {
-    top: 0.55rem;
-    right: 0.55rem;
     width: 34px;
     height: 34px;
+  }
+
+  .viewer-icon-toolbar {
+    top: 0.55rem;
+    right: 0.55rem;
   }
 
   .viewer-controls {

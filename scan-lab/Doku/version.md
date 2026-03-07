@@ -15,6 +15,11 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.3.2 (2026-03-07)
+- Viewer: Toggle-Icon fuer automatische Rotation um den Ursprung hinzugefuegt (Rotation ein/aus).
+- Toggle-Status visuell hervorgehoben und per `aria-pressed` als Schalter umgesetzt.
+- Bestehendes Reset-Ansicht-Icon mit Rotations-Icon in gemeinsamer Toolbar gruppiert.
+
 ## 0.3.1 (2026-03-07)
 - Viewer: Icon zum Zuruecksetzen auf die Standardansicht integriert.
 - Kamera-Reset auf gespeicherte Default-Ansicht des geladenen Modells umgesetzt.

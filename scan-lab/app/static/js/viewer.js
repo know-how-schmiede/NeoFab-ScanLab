@@ -9,7 +9,9 @@ const modelColorInput = document.getElementById("model-color-input");
 const modelColorResetButton = document.getElementById("model-color-reset");
 const colorPresetButtons = Array.from(document.querySelectorAll(".color-preset"));
 const resetViewButton = document.getElementById("viewer-reset-view");
+const rotationToggleButton = document.getElementById("viewer-toggle-rotation");
 const DEFAULT_MODEL_COLOR = "#8aa2c8";
+const AUTO_ROTATE_SPEED = 1.6;
 
 function setStatus(message, isError = false) {
   if (!statusElement) {
@@ -59,6 +61,8 @@ function initViewer() {
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
+  controls.autoRotate = false;
+  controls.autoRotateSpeed = AUTO_ROTATE_SPEED;
   controls.target.set(0, 0, 0);
 
   const hemiLight = new THREE.HemisphereLight(0xffffff, 0x3f4d60, 1.0);
@@ -75,6 +79,7 @@ function initViewer() {
   let currentMesh = null;
   let currentModelColor = new THREE.Color(DEFAULT_MODEL_COLOR);
   let defaultViewState = null;
+  let isAutoRotationEnabled = false;
 
   function setResetViewEnabled(isEnabled) {
     if (!resetViewButton) {
@@ -106,6 +111,33 @@ function initViewer() {
 
     controls.target.copy(defaultViewState.target);
     controls.update();
+  }
+
+  function setAutoRotation(enabled) {
+    const nextState = Boolean(enabled);
+    isAutoRotationEnabled = nextState;
+    controls.autoRotate = nextState;
+
+    if (nextState) {
+      if (defaultViewState) {
+        controls.target.copy(defaultViewState.target);
+      } else {
+        controls.target.set(0, 0, 0);
+      }
+      controls.update();
+    }
+
+    if (!rotationToggleButton) {
+      return;
+    }
+
+    rotationToggleButton.classList.toggle("is-toggled", nextState);
+    rotationToggleButton.setAttribute("aria-pressed", String(nextState));
+    rotationToggleButton.setAttribute(
+      "aria-label",
+      nextState ? "Automatische Rotation ausschalten" : "Automatische Rotation einschalten"
+    );
+    rotationToggleButton.title = nextState ? "Rotation aus" : "Rotation ein";
   }
 
   function setActivePreset(colorValue) {
@@ -254,7 +286,14 @@ function initViewer() {
     });
   }
 
+  if (rotationToggleButton) {
+    rotationToggleButton.addEventListener("click", () => {
+      setAutoRotation(!isAutoRotationEnabled);
+    });
+  }
+
   setResetViewEnabled(false);
+  setAutoRotation(false);
   applyModelColor(DEFAULT_MODEL_COLOR);
 
   if (modelButtons.length > 0) {

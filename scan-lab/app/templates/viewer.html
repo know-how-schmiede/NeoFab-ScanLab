@@ -91,19 +91,36 @@
   </section>
 
   <div id="viewer-container" class="viewer-container">
-    <button
-      type="button"
-      id="viewer-reset-view"
-      class="viewer-icon-button"
-      aria-label="Standardansicht wiederherstellen"
-      title="Standardansicht wiederherstellen"
-      disabled
-    >
-      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M3 3v6h6"></path>
-        <path d="M3.5 9a9 9 0 1 0 2.2-4.2"></path>
-      </svg>
-    </button>
+    <div class="viewer-icon-toolbar" role="group" aria-label="Ansichtswerkzeuge">
+      <button
+        type="button"
+        id="viewer-reset-view"
+        class="viewer-icon-button"
+        aria-label="Standardansicht wiederherstellen"
+        title="Standardansicht wiederherstellen"
+        disabled
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M3 3v6h6"></path>
+          <path d="M3.5 9a9 9 0 1 0 2.2-4.2"></path>
+        </svg>
+      </button>
+      <button
+        type="button"
+        id="viewer-toggle-rotation"
+        class="viewer-icon-button"
+        aria-label="Automatische Rotation einschalten"
+        title="Rotation ein"
+        aria-pressed="false"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M4 4v5h5"></path>
+          <path d="M20 20v-5h-5"></path>
+          <path d="M5 9a7 7 0 0 1 12-3"></path>
+          <path d="M19 15a7 7 0 0 1-12 3"></path>
+        </svg>
+      </button>
+    </div>
   </div>
   <p id="viewer-status" class="viewer-status">Viewer initializing...</p>
 </section>
