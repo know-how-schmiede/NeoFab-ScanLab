@@ -159,6 +159,80 @@ body {
   color: #0b336f;
 }
 
+.viewer-controls {
+  margin-top: 1.1rem;
+  padding: 0.9rem 1rem 1rem;
+  border: 1px solid #c8d5e8;
+  border-radius: 10px;
+  background: #f6f9ff;
+}
+
+.viewer-controls h3 {
+  margin: 0 0 0.6rem;
+}
+
+.viewer-control-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.viewer-control-row label {
+  color: #314a66;
+  font-size: 0.92rem;
+}
+
+#model-color-input {
+  width: 44px;
+  height: 34px;
+  border: 1px solid #95aacc;
+  border-radius: 6px;
+  padding: 2px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.control-button {
+  cursor: pointer;
+  border: 1px solid #a6b8d4;
+  border-radius: 7px;
+  padding: 0.35rem 0.65rem;
+  background: #fff;
+  color: #213752;
+  font-size: 0.88rem;
+}
+
+.control-button:hover {
+  border-color: #0b6dff;
+  color: #0b336f;
+}
+
+.color-presets {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.color-preset {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #a7b8d2;
+  background: var(--preset-color, #8aa2c8);
+  cursor: pointer;
+}
+
+.color-preset:hover {
+  transform: translateY(-1px);
+}
+
+.color-preset.is-active {
+  border-color: #0b6dff;
+  box-shadow: 0 0 0 3px rgba(11, 109, 255, 0.2);
+}
+
 .viewer-status {
   margin-top: 0.8rem;
   font-size: 0.95rem;
@@ -183,5 +257,9 @@ body {
 
   .viewer-container {
     min-height: 320px;
+  }
+
+  .viewer-controls {
+    padding: 0.8rem;
   }
 }

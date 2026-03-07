@@ -31,6 +31,65 @@
     {% endif %}
   </section>
 
+  <section class="viewer-controls" aria-label="Model color controls">
+    <h3>Model color</h3>
+    <div class="viewer-control-row">
+      <label for="model-color-input">Custom color</label>
+      <input type="color" id="model-color-input" value="#8aa2c8" />
+      <button type="button" id="model-color-reset" class="control-button">Reset</button>
+    </div>
+    <div class="color-presets" role="group" aria-label="Color presets">
+      <button
+        type="button"
+        class="color-preset is-active"
+        data-color="#8aa2c8"
+        style="--preset-color: #8aa2c8;"
+        aria-label="Steel blue"
+        title="Steel blue"
+      ></button>
+      <button
+        type="button"
+        class="color-preset"
+        data-color="#d9dce2"
+        style="--preset-color: #d9dce2;"
+        aria-label="Light gray"
+        title="Light gray"
+      ></button>
+      <button
+        type="button"
+        class="color-preset"
+        data-color="#f5c14f"
+        style="--preset-color: #f5c14f;"
+        aria-label="Gold"
+        title="Gold"
+      ></button>
+      <button
+        type="button"
+        class="color-preset"
+        data-color="#52a36f"
+        style="--preset-color: #52a36f;"
+        aria-label="Green"
+        title="Green"
+      ></button>
+      <button
+        type="button"
+        class="color-preset"
+        data-color="#d86262"
+        style="--preset-color: #d86262;"
+        aria-label="Red"
+        title="Red"
+      ></button>
+      <button
+        type="button"
+        class="color-preset"
+        data-color="#3d4048"
+        style="--preset-color: #3d4048;"
+        aria-label="Graphite"
+        title="Graphite"
+      ></button>
+    </div>
+  </section>
+
   <div id="viewer-container" class="viewer-container"></div>
   <p id="viewer-status" class="viewer-status">Viewer initializing...</p>
 </section>

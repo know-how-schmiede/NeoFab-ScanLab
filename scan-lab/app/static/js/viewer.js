@@ -5,6 +5,10 @@ import { STLLoader } from "../vendor/three/examples/jsm/loaders/STLLoader.js";
 const container = document.getElementById("viewer-container");
 const statusElement = document.getElementById("viewer-status");
 const modelButtons = Array.from(document.querySelectorAll(".model-button"));
+const modelColorInput = document.getElementById("model-color-input");
+const modelColorResetButton = document.getElementById("model-color-reset");
+const colorPresetButtons = Array.from(document.querySelectorAll(".color-preset"));
+const DEFAULT_MODEL_COLOR = "#8aa2c8";
 
 function setStatus(message, isError = false) {
   if (!statusElement) {
@@ -18,6 +22,15 @@ function setActiveButton(activeButton) {
   modelButtons.forEach((button) => {
     button.classList.toggle("is-active", button === activeButton);
   });
+}
+
+function normalizeHexColor(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return /^#[0-9a-f]{6}$/.test(normalized) ? normalized : null;
 }
 
 function initViewer() {
@@ -59,6 +72,35 @@ function initViewer() {
 
   const loader = new STLLoader();
   let currentMesh = null;
+  let currentModelColor = new THREE.Color(DEFAULT_MODEL_COLOR);
+
+  function setActivePreset(colorValue) {
+    const normalizedColor = normalizeHexColor(colorValue);
+    colorPresetButtons.forEach((button) => {
+      const presetColor = normalizeHexColor(button.dataset.color);
+      button.classList.toggle("is-active", presetColor === normalizedColor);
+    });
+  }
+
+  function applyModelColor(colorValue, { syncInput = true } = {}) {
+    const normalizedColor = normalizeHexColor(colorValue);
+    if (!normalizedColor) {
+      return;
+    }
+
+    currentModelColor = new THREE.Color(normalizedColor);
+
+    if (currentMesh && currentMesh.material && "color" in currentMesh.material) {
+      currentMesh.material.color.set(normalizedColor);
+      currentMesh.material.needsUpdate = true;
+    }
+
+    if (syncInput && modelColorInput) {
+      modelColorInput.value = normalizedColor;
+    }
+
+    setActivePreset(normalizedColor);
+  }
 
   function disposeCurrentMesh() {
     if (!currentMesh) {
@@ -109,7 +151,7 @@ function initViewer() {
         geometry.computeVertexNormals();
 
         const material = new THREE.MeshStandardMaterial({
-          color: 0x8aa2c8,
+          color: currentModelColor.getHex(),
           metalness: 0.1,
           roughness: 0.7,
         });
@@ -153,6 +195,25 @@ function initViewer() {
       loadModel(button.dataset.modelUrl, button.dataset.modelName, button);
     });
   });
+  if (modelColorInput) {
+    modelColorInput.addEventListener("input", () => {
+      applyModelColor(modelColorInput.value, { syncInput: false });
+    });
+  }
+
+  colorPresetButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      applyModelColor(button.dataset.color);
+    });
+  });
+
+  if (modelColorResetButton) {
+    modelColorResetButton.addEventListener("click", () => {
+      applyModelColor(DEFAULT_MODEL_COLOR);
+    });
+  }
+
+  applyModelColor(DEFAULT_MODEL_COLOR);
 
   if (modelButtons.length > 0) {
     const firstButton = modelButtons[0];

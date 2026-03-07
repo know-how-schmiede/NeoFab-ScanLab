@@ -15,6 +15,11 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.3.0 (2026-03-07)
+- Viewer um interaktive Modell-Farbsteuerung erweitert (Color-Picker, Presets, Reset).
+- Ausgewaehlte Modellfarbe bleibt beim Laden anderer Modelle im Viewer erhalten.
+- Styles fuer neue Farb-Controls inkl. mobiler Darstellung ergaenzt.
+
 ## 0.2.0 (2026-03-06)
 - Anzeige der Projektversion aus zentraler `version.py` in der Weboberflaeche integriert.
 - `sample_models`-Dateien werden im Viewer gelistet und als STL gerendert.
