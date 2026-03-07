@@ -15,6 +15,10 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.3.1 (2026-03-07)
+- Viewer: Icon zum Zuruecksetzen auf die Standardansicht integriert.
+- Kamera-Reset auf gespeicherte Default-Ansicht des geladenen Modells umgesetzt.
+
 ## 0.3.0 (2026-03-07)
 - Viewer um interaktive Modell-Farbsteuerung erweitert (Color-Picker, Presets, Reset).
 - Ausgewaehlte Modellfarbe bleibt beim Laden anderer Modelle im Viewer erhalten.

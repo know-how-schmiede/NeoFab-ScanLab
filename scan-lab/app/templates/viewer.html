@@ -90,7 +90,21 @@
     </div>
   </section>
 
-  <div id="viewer-container" class="viewer-container"></div>
+  <div id="viewer-container" class="viewer-container">
+    <button
+      type="button"
+      id="viewer-reset-view"
+      class="viewer-icon-button"
+      aria-label="Standardansicht wiederherstellen"
+      title="Standardansicht wiederherstellen"
+      disabled
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M3 3v6h6"></path>
+        <path d="M3.5 9a9 9 0 1 0 2.2-4.2"></path>
+      </svg>
+    </button>
+  </div>
   <p id="viewer-status" class="viewer-status">Viewer initializing...</p>
 </section>
 {% endblock %}

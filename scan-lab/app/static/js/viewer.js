@@ -8,6 +8,7 @@ const modelButtons = Array.from(document.querySelectorAll(".model-button"));
 const modelColorInput = document.getElementById("model-color-input");
 const modelColorResetButton = document.getElementById("model-color-reset");
 const colorPresetButtons = Array.from(document.querySelectorAll(".color-preset"));
+const resetViewButton = document.getElementById("viewer-reset-view");
 const DEFAULT_MODEL_COLOR = "#8aa2c8";
 
 function setStatus(message, isError = false) {
@@ -73,6 +74,39 @@ function initViewer() {
   const loader = new STLLoader();
   let currentMesh = null;
   let currentModelColor = new THREE.Color(DEFAULT_MODEL_COLOR);
+  let defaultViewState = null;
+
+  function setResetViewEnabled(isEnabled) {
+    if (!resetViewButton) {
+      return;
+    }
+
+    resetViewButton.disabled = !isEnabled;
+  }
+
+  function storeCurrentViewAsDefault() {
+    defaultViewState = {
+      position: camera.position.clone(),
+      near: camera.near,
+      far: camera.far,
+      target: controls.target.clone(),
+    };
+    setResetViewEnabled(true);
+  }
+
+  function resetToDefaultView() {
+    if (!defaultViewState) {
+      return;
+    }
+
+    camera.position.copy(defaultViewState.position);
+    camera.near = defaultViewState.near;
+    camera.far = defaultViewState.far;
+    camera.updateProjectionMatrix();
+
+    controls.target.copy(defaultViewState.target);
+    controls.update();
+  }
 
   function setActivePreset(colorValue) {
     const normalizedColor = normalizeHexColor(colorValue);
@@ -134,6 +168,7 @@ function initViewer() {
 
     controls.target.set(0, 0, 0);
     controls.update();
+    storeCurrentViewAsDefault();
   }
 
   function loadModel(modelUrl, modelName, sourceButton) {
@@ -213,6 +248,13 @@ function initViewer() {
     });
   }
 
+  if (resetViewButton) {
+    resetViewButton.addEventListener("click", () => {
+      resetToDefaultView();
+    });
+  }
+
+  setResetViewEnabled(false);
   applyModelColor(DEFAULT_MODEL_COLOR);
 
   if (modelButtons.length > 0) {

@@ -105,6 +105,7 @@ body {
   border: 1px solid #9cb2d3;
   border-radius: 12px;
   background: radial-gradient(circle at 20% 20%, #f7fbff 0, #ecf3ff 45%, #dde9f8 100%);
+  position: relative;
   overflow: hidden;
 }
 
@@ -112,6 +113,45 @@ body {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.viewer-icon-button {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.8rem;
+  z-index: 3;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #95aacc;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #29415f;
+  box-shadow: 0 4px 14px rgba(16, 26, 43, 0.16);
+  cursor: pointer;
+}
+
+.viewer-icon-button svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.viewer-icon-button:hover {
+  border-color: #0b6dff;
+  color: #0b336f;
+  background: #ffffff;
+}
+
+.viewer-icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .model-list {
@@ -257,6 +297,13 @@ body {
 
   .viewer-container {
     min-height: 320px;
+  }
+
+  .viewer-icon-button {
+    top: 0.55rem;
+    right: 0.55rem;
+    width: 34px;
+    height: 34px;
   }
 
   .viewer-controls {
