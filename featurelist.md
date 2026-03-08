@@ -5,14 +5,15 @@ Sortierung: von oben nach unten nach Prioritaet und Umsetzbarkeit
 
 ## 1) Hohe Prioritaet, schnell umsetzbar
 
-- [ ] Upload-Button + Drag-and-Drop fuer lokale STL/GLB Dateien
+- [X] Upload-Button + Drag-and-Drop fuer lokale STL/GLB Dateien
 - [ ] Ladeindikator mit Prozentanzeige beim Modellimport
-- [X] Anzeige von Modellinfos (Dateigroesse, Bounding Box, Dreiecksanzahl)
-- [ ] Achsen-Helfer (AxisHelper) als ein/aus Schalter
+- [ ] Anzeige von Modellinfos (Dateigroesse, Bounding Box, Dreiecksanzahl)
+- [X] Achsen-Helfer (AxisHelper) als ein/aus Schalter
 - [ ] Wireframe/Solid Umschalter fuer schnelle Geometriepruefung
 - [ ] Screenshot-Export als PNG aus aktueller Kameraposition
 - [ ] Viewer-Shortcuts (Reset, Rotation, Grid) ueber Tastatur
 - [ ] Persistenz der letzten Viewer-Einstellungen (localStorage)
+- [ ] Color-Auswahl als Favorit speichern
 
 ## 2) Hohe Prioritaet, mittlere Umsetzbarkeit
 

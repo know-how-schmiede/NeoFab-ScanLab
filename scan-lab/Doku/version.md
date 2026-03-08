@@ -15,6 +15,11 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.3.5 (2026-03-08)
+- Viewer: Upload-Button fuer lokale STL/GLB-Dateien integriert.
+- Viewer: Drag-and-Drop-Zone fuer lokale STL/GLB-Dateien hinzugefuegt.
+- GLB-Support via lokal eingebundenem `GLTFLoader` (three.js r165) umgesetzt.
+
 ## 0.3.4 (2026-03-08)
 - Viewer: Achsen-Helfer (`AxesHelper`) in die Szene integriert.
 - Toolbar um ein Icon zum Ein-/Ausblenden der Achsen erweitert.

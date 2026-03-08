@@ -1,6 +1,7 @@
 import * as THREE from "../vendor/three/build/three.module.js";
 import { OrbitControls } from "../vendor/three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "../vendor/three/examples/jsm/loaders/STLLoader.js";
+import { GLTFLoader } from "../vendor/three/examples/jsm/loaders/GLTFLoader.js";
 
 const container = document.getElementById("viewer-container");
 const statusElement = document.getElementById("viewer-status");
@@ -12,13 +13,19 @@ const resetViewButton = document.getElementById("viewer-reset-view");
 const rotationToggleButton = document.getElementById("viewer-toggle-rotation");
 const gridToggleButton = document.getElementById("viewer-toggle-grid");
 const axesToggleButton = document.getElementById("viewer-toggle-axes");
+const localModelButton = document.getElementById("local-model-button");
+const localModelInput = document.getElementById("local-model-input");
+const viewerDropzone = document.getElementById("viewer-dropzone");
+
 const DEFAULT_MODEL_COLOR = "#8aa2c8";
 const AUTO_ROTATE_SPEED = 1.6;
+const SUPPORTED_LOCAL_EXTENSIONS = new Set(["stl", "glb"]);
 
 function setStatus(message, isError = false) {
   if (!statusElement) {
     return;
   }
+
   statusElement.textContent = message;
   statusElement.dataset.state = isError ? "error" : "ok";
 }
@@ -36,6 +43,15 @@ function normalizeHexColor(value) {
 
   const normalized = value.trim().toLowerCase();
   return /^#[0-9a-f]{6}$/.test(normalized) ? normalized : null;
+}
+
+function getFileExtension(fileName) {
+  if (typeof fileName !== "string") {
+    return "";
+  }
+
+  const segments = fileName.toLowerCase().split(".");
+  return segments.length > 1 ? segments.pop() : "";
 }
 
 function initViewer() {
@@ -80,8 +96,9 @@ function initViewer() {
   const axes = new THREE.AxesHelper(90);
   scene.add(axes);
 
-  const loader = new STLLoader();
-  let currentMesh = null;
+  const stlLoader = new STLLoader();
+  const gltfLoader = new GLTFLoader();
+  let currentModelObject = null;
   let currentModelColor = new THREE.Color(DEFAULT_MODEL_COLOR);
   let defaultViewState = null;
   let isAutoRotationEnabled = false;
@@ -183,6 +200,14 @@ function initViewer() {
     axesToggleButton.title = nextState ? "Achsen aus" : "Achsen ein";
   }
 
+  function setDropzoneDragActive(isActive) {
+    if (!viewerDropzone) {
+      return;
+    }
+
+    viewerDropzone.classList.toggle("is-dragover", Boolean(isActive));
+  }
+
   function setActivePreset(colorValue) {
     const normalizedColor = normalizeHexColor(colorValue);
     colorPresetButtons.forEach((button) => {
@@ -199,9 +224,22 @@ function initViewer() {
 
     currentModelColor = new THREE.Color(normalizedColor);
 
-    if (currentMesh && currentMesh.material && "color" in currentMesh.material) {
-      currentMesh.material.color.set(normalizedColor);
-      currentMesh.material.needsUpdate = true;
+    if (currentModelObject) {
+      currentModelObject.traverse((node) => {
+        if (!node.isMesh) {
+          return;
+        }
+
+        const materials = Array.isArray(node.material) ? node.material : [node.material];
+        materials.forEach((material) => {
+          if (!material || !("color" in material) || !material.color) {
+            return;
+          }
+
+          material.color.set(normalizedColor);
+          material.needsUpdate = true;
+        });
+      });
     }
 
     if (syncInput && modelColorInput) {
@@ -211,19 +249,60 @@ function initViewer() {
     setActivePreset(normalizedColor);
   }
 
-  function disposeCurrentMesh() {
-    if (!currentMesh) {
+  function disposeMaterial(material, disposedTextures) {
+    if (!material) {
       return;
     }
 
-    scene.remove(currentMesh);
-    currentMesh.geometry.dispose();
-    currentMesh.material.dispose();
-    currentMesh = null;
+    Object.values(material).forEach((value) => {
+      if (!value || !value.isTexture || disposedTextures.has(value)) {
+        return;
+      }
+
+      value.dispose();
+      disposedTextures.add(value);
+    });
+
+    material.dispose();
   }
 
-  function frameObject(mesh) {
-    const bounds = new THREE.Box3().setFromObject(mesh);
+  function disposeCurrentModel() {
+    if (!currentModelObject) {
+      return;
+    }
+
+    scene.remove(currentModelObject);
+
+    const disposedGeometries = new Set();
+    const disposedMaterials = new Set();
+    const disposedTextures = new Set();
+
+    currentModelObject.traverse((node) => {
+      if (!node.isMesh) {
+        return;
+      }
+
+      if (node.geometry && !disposedGeometries.has(node.geometry)) {
+        node.geometry.dispose();
+        disposedGeometries.add(node.geometry);
+      }
+
+      const materials = Array.isArray(node.material) ? node.material : [node.material];
+      materials.forEach((material) => {
+        if (!material || disposedMaterials.has(material)) {
+          return;
+        }
+
+        disposeMaterial(material, disposedTextures);
+        disposedMaterials.add(material);
+      });
+    });
+
+    currentModelObject = null;
+  }
+
+  function frameObject(object3d) {
+    const bounds = new THREE.Box3().setFromObject(object3d);
     if (bounds.isEmpty()) {
       return;
     }
@@ -231,7 +310,7 @@ function initViewer() {
     const size = bounds.getSize(new THREE.Vector3());
     const center = bounds.getCenter(new THREE.Vector3());
 
-    mesh.position.sub(center);
+    object3d.position.sub(center);
 
     const maxSize = Math.max(size.x, size.y, size.z) || 1;
     const cameraDistance = maxSize * 1.8;
@@ -246,6 +325,27 @@ function initViewer() {
     storeCurrentViewAsDefault();
   }
 
+  function createStlMesh(geometry) {
+    geometry.computeVertexNormals();
+    const material = new THREE.MeshStandardMaterial({
+      color: currentModelColor.getHex(),
+      metalness: 0.1,
+      roughness: 0.7,
+    });
+    return new THREE.Mesh(geometry, material);
+  }
+
+  function finalizeLoadedModel(object3d, modelName, sourceButton = null) {
+    disposeCurrentModel();
+    currentModelObject = object3d;
+    scene.add(currentModelObject);
+
+    frameObject(currentModelObject);
+    applyModelColor(`#${currentModelColor.getHexString()}`);
+    setActiveButton(sourceButton);
+    setStatus(`Loaded ${modelName}.`);
+  }
+
   function loadModel(modelUrl, modelName, sourceButton) {
     if (!modelUrl) {
       setStatus("No model URL provided.", true);
@@ -254,30 +354,75 @@ function initViewer() {
 
     setStatus(`Loading ${modelName} ...`);
 
-    loader.load(
+    stlLoader.load(
       modelUrl,
       (geometry) => {
-        disposeCurrentMesh();
-        geometry.computeVertexNormals();
-
-        const material = new THREE.MeshStandardMaterial({
-          color: currentModelColor.getHex(),
-          metalness: 0.1,
-          roughness: 0.7,
-        });
-
-        currentMesh = new THREE.Mesh(geometry, material);
-        scene.add(currentMesh);
-
-        frameObject(currentMesh);
-        setActiveButton(sourceButton);
-        setStatus(`Loaded ${modelName}.`);
+        const mesh = createStlMesh(geometry);
+        finalizeLoadedModel(mesh, modelName, sourceButton);
       },
       undefined,
       () => {
         setStatus(`Failed to load ${modelName}.`, true);
       }
     );
+  }
+
+  function parseGlb(arrayBuffer) {
+    return new Promise((resolve, reject) => {
+      gltfLoader.parse(arrayBuffer, "", resolve, reject);
+    });
+  }
+
+  async function loadLocalFile(file) {
+    if (!file) {
+      return;
+    }
+
+    const extension = getFileExtension(file.name);
+    if (!SUPPORTED_LOCAL_EXTENSIONS.has(extension)) {
+      setStatus("Unsupported local file. Use .stl or .glb.", true);
+      return;
+    }
+
+    setStatus(`Loading local file ${file.name} ...`);
+    setActiveButton(null);
+
+    try {
+      const buffer = await file.arrayBuffer();
+
+      if (extension === "stl") {
+        const geometry = stlLoader.parse(buffer);
+        const mesh = createStlMesh(geometry);
+        finalizeLoadedModel(mesh, file.name);
+        return;
+      }
+
+      const gltf = await parseGlb(buffer);
+      const gltfRoot = gltf.scene || (Array.isArray(gltf.scenes) ? gltf.scenes[0] : null);
+
+      if (!gltfRoot) {
+        throw new Error("GLB does not contain a scene.");
+      }
+
+      finalizeLoadedModel(gltfRoot, file.name);
+    } catch (error) {
+      console.error("Local model load failed.", error);
+      setStatus(`Failed to load ${file.name}.`, true);
+    }
+  }
+
+  function handleLocalFileSelection(fileList) {
+    if (!fileList || fileList.length === 0) {
+      return;
+    }
+
+    const file = fileList[0];
+    void loadLocalFile(file);
+  }
+
+  function preventDefaultDrag(event) {
+    event.preventDefault();
+    event.stopPropagation();
   }
 
   function render() {
@@ -305,6 +450,61 @@ function initViewer() {
       loadModel(button.dataset.modelUrl, button.dataset.modelName, button);
     });
   });
+
+  if (localModelButton && localModelInput) {
+    localModelButton.addEventListener("click", () => {
+      localModelInput.click();
+    });
+  }
+
+  if (localModelInput) {
+    localModelInput.addEventListener("change", () => {
+      handleLocalFileSelection(localModelInput.files);
+      localModelInput.value = "";
+    });
+  }
+
+  if (viewerDropzone && localModelInput) {
+    viewerDropzone.addEventListener("click", () => {
+      localModelInput.click();
+    });
+
+    viewerDropzone.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+
+      event.preventDefault();
+      localModelInput.click();
+    });
+
+    ["dragenter", "dragover"].forEach((eventName) => {
+      viewerDropzone.addEventListener(eventName, (event) => {
+        preventDefaultDrag(event);
+        setDropzoneDragActive(true);
+      });
+    });
+
+    ["dragleave", "dragend"].forEach((eventName) => {
+      viewerDropzone.addEventListener(eventName, (event) => {
+        preventDefaultDrag(event);
+        setDropzoneDragActive(false);
+      });
+    });
+
+    viewerDropzone.addEventListener("drop", (event) => {
+      preventDefaultDrag(event);
+      setDropzoneDragActive(false);
+      handleLocalFileSelection(event.dataTransfer ? event.dataTransfer.files : null);
+    });
+  }
+
+  if (container) {
+    ["dragenter", "dragover", "drop"].forEach((eventName) => {
+      container.addEventListener(eventName, preventDefaultDrag);
+    });
+  }
+
   if (modelColorInput) {
     modelColorInput.addEventListener("input", () => {
       applyModelColor(modelColorInput.value, { syncInput: false });

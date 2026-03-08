@@ -6,7 +6,7 @@
 <section class="card">
   <h2>Viewer Playground</h2>
   <p>
-    Select a sample STL file from <code>sample_models/</code> to render it in the three.js viewer.
+    Select a sample STL file from <code>sample_models/</code> or load a local STL/GLB file.
   </p>
 
   <section class="model-list">
@@ -29,6 +29,29 @@
     {% else %}
     <p>No supported model files found in <code>sample_models/</code>.</p>
     {% endif %}
+  </section>
+
+  <section class="viewer-controls" aria-label="Local model upload controls">
+    <h3>Local model upload</h3>
+    <div class="viewer-control-row">
+      <button type="button" id="local-model-button" class="control-button">Choose STL/GLB file</button>
+      <input
+        type="file"
+        id="local-model-input"
+        accept=".stl,.glb,model/stl,model/gltf-binary"
+        class="visually-hidden"
+      />
+      <span class="viewer-upload-hint">or drop a file into the area below</span>
+    </div>
+    <div
+      id="viewer-dropzone"
+      class="viewer-dropzone"
+      role="button"
+      tabindex="0"
+      aria-label="Drop local STL or GLB file here"
+    >
+      Drag and drop STL/GLB here
+    </div>
   </section>
 
   <section class="viewer-controls" aria-label="Model color controls">
