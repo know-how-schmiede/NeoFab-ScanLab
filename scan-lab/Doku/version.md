@@ -15,6 +15,12 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.3.8 (2026-03-08)
+- Viewer: Button "Add favorite" bei "Custom color" hinzugefuegt.
+- Aktuelle Farbe aus dem Color-Input kann als neues Preset in die Farbpalette abgelegt werden.
+- Doppelte Favoritenfarben werden erkannt und nicht erneut angelegt.
+- Projektversion auf `0.3.8` erhoeht.
+
 ## 0.3.7 (2026-03-08)
 - Viewer: Wireframe/Solid Umschalter als Toolbar-Toggle hinzugefuegt.
 - Wireframe-Modus wirkt auf STL- und GLB-Meshes und bleibt beim Modellwechsel aktiv.

@@ -13,7 +13,7 @@ Sortierung: von oben nach unten nach Prioritaet und Umsetzbarkeit
 - [ ] Screenshot-Export als PNG aus aktueller Kameraposition
 - [ ] Viewer-Shortcuts (Reset, Rotation, Grid) ueber Tastatur
 - [ ] Persistenz der letzten Viewer-Einstellungen (localStorage)
-- [ ] Color-Auswahl als Favorit speichern
+- [X] Color-Auswahl als Favorit speichern
 - [X] "Home"-Icon für Standart-Ansicht zurücksetzen
 
 ## 2) Hohe Prioritaet, mittlere Umsetzbarkeit
