@@ -234,6 +234,22 @@
       </button>
       <button
         type="button"
+        id="viewer-align-bbox-axes"
+        class="viewer-icon-button"
+        aria-label="Align bounding box to axes"
+        title="Align bounding box to axes"
+        disabled
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <rect x="5" y="5" width="14" height="14"></rect>
+          <path d="M3 21h8"></path>
+          <path d="M3 21v-8"></path>
+          <path d="M21 3h-8"></path>
+          <path d="M21 3v8"></path>
+        </svg>
+      </button>
+      <button
+        type="button"
         id="viewer-toggle-rotation"
         class="viewer-icon-button"
         aria-label="Enable auto-rotation"
@@ -245,6 +261,52 @@
           <path d="M20 20v-5h-5"></path>
           <path d="M5 9a7 7 0 0 1 12-3"></path>
           <path d="M19 15a7 7 0 0 1-12 3"></path>
+        </svg>
+      </button>
+      <button
+        type="button"
+        id="viewer-export-screenshot"
+        class="viewer-icon-button"
+        aria-label="Export screenshot as PNG"
+        title="Export screenshot as PNG"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M4 8h16v10H4z"></path>
+          <path d="M9 8l1.3-2h3.4L15 8"></path>
+          <circle cx="12" cy="13" r="3"></circle>
+        </svg>
+      </button>
+      <button
+        type="button"
+        id="viewer-toggle-model-info"
+        class="viewer-icon-button"
+        aria-label="Hide model info"
+        title="Hide model info"
+        aria-pressed="true"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="8"></circle>
+          <path d="M12 10v6"></path>
+          <path d="M12 7h.01"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="viewer-icon-toolbar viewer-icon-toolbar-bottom-left" role="group" aria-label="Display tools">
+      <button
+        type="button"
+        id="viewer-toggle-bounding-box"
+        class="viewer-icon-button"
+        aria-label="Show bounding box"
+        title="Show bounding box"
+        aria-pressed="false"
+        disabled
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M5 5h14v14H5z"></path>
+          <path d="M5 9h14"></path>
+          <path d="M5 15h14"></path>
+          <path d="M9 5v14"></path>
+          <path d="M15 5v14"></path>
         </svg>
       </button>
       <button
@@ -287,33 +349,6 @@
           <path d="M5 5h14v14H5z"></path>
           <path d="M5 5l14 14"></path>
           <path d="M19 5 5 19"></path>
-        </svg>
-      </button>
-      <button
-        type="button"
-        id="viewer-export-screenshot"
-        class="viewer-icon-button"
-        aria-label="Export screenshot as PNG"
-        title="Export screenshot as PNG"
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path d="M4 8h16v10H4z"></path>
-          <path d="M9 8l1.3-2h3.4L15 8"></path>
-          <circle cx="12" cy="13" r="3"></circle>
-        </svg>
-      </button>
-      <button
-        type="button"
-        id="viewer-toggle-model-info"
-        class="viewer-icon-button"
-        aria-label="Hide model info"
-        title="Hide model info"
-        aria-pressed="true"
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <circle cx="12" cy="12" r="8"></circle>
-          <path d="M12 10v6"></path>
-          <path d="M12 7h.01"></path>
         </svg>
       </button>
     </div>

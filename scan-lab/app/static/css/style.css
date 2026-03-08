@@ -125,6 +125,14 @@ body {
   gap: 0.45rem;
 }
 
+.viewer-icon-toolbar-bottom-left {
+  top: auto;
+  right: auto;
+  left: 0.8rem;
+  bottom: 0.8rem;
+  flex-direction: row;
+}
+
 .viewer-icon-button {
   width: 38px;
   height: 38px;
@@ -442,6 +450,13 @@ body {
   .viewer-icon-toolbar {
     top: 0.55rem;
     right: 0.55rem;
+  }
+
+  .viewer-icon-toolbar-bottom-left {
+    top: auto;
+    right: auto;
+    left: 0.55rem;
+    bottom: 0.55rem;
   }
 
   .viewer-model-info {

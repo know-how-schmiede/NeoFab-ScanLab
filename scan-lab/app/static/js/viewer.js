@@ -16,6 +16,8 @@ let lightingPresetButtons = Array.from(document.querySelectorAll(".lighting-pres
 const resetViewButton = document.getElementById("viewer-reset-view");
 const faceSelectionToggleButton = document.getElementById("viewer-toggle-face-selection");
 const placeOnSelectedFaceButton = document.getElementById("viewer-place-on-selected-face");
+const alignBoundingBoxAxesButton = document.getElementById("viewer-align-bbox-axes");
+const boundingBoxToggleButton = document.getElementById("viewer-toggle-bounding-box");
 const rotationToggleButton = document.getElementById("viewer-toggle-rotation");
 const gridToggleButton = document.getElementById("viewer-toggle-grid");
 const axesToggleButton = document.getElementById("viewer-toggle-axes");
@@ -183,6 +185,7 @@ function initViewer() {
   const pointerNdc = new THREE.Vector2();
   let currentModelObject = null;
   let currentModelFileSizeBytes = null;
+  let currentModelBoundingBoxHelper = null;
   let selectedFaceNormalWorld = null;
   let faceSelectionMarker = null;
   let isFaceSelectionEnabled = false;
@@ -193,6 +196,7 @@ function initViewer() {
   let isAxesVisible = true;
   let isWireframeEnabled = false;
   let isModelInfoVisible = true;
+  let isBoundingBoxVisible = false;
   const builtInPresetColors = new Set(
     colorPresetButtons.map((button) => normalizeHexColor(button.dataset.color)).filter(Boolean)
   );
@@ -349,12 +353,76 @@ function initViewer() {
     modelInfoToggleButton.title = nextState ? "Hide model info" : "Show model info";
   }
 
+  function setBoundingBoxToggleEnabled(isEnabled) {
+    if (!boundingBoxToggleButton) {
+      return;
+    }
+
+    boundingBoxToggleButton.disabled = !isEnabled;
+  }
+
+  function removeBoundingBoxHelper() {
+    if (!currentModelBoundingBoxHelper) {
+      return;
+    }
+
+    scene.remove(currentModelBoundingBoxHelper);
+    currentModelBoundingBoxHelper.geometry.dispose();
+    currentModelBoundingBoxHelper.material.dispose();
+    currentModelBoundingBoxHelper = null;
+  }
+
+  function syncBoundingBoxHelper() {
+    if (!isBoundingBoxVisible || !currentModelObject) {
+      removeBoundingBoxHelper();
+      return;
+    }
+
+    if (!currentModelBoundingBoxHelper) {
+      currentModelBoundingBoxHelper = new THREE.BoxHelper(currentModelObject, 0xff8a00);
+      scene.add(currentModelBoundingBoxHelper);
+    }
+
+    currentModelBoundingBoxHelper.update();
+  }
+
+  function setBoundingBoxVisibility(visible) {
+    const nextState = Boolean(visible);
+    isBoundingBoxVisible = nextState;
+
+    if (nextState) {
+      syncBoundingBoxHelper();
+    } else {
+      removeBoundingBoxHelper();
+    }
+
+    if (!boundingBoxToggleButton) {
+      return;
+    }
+
+    boundingBoxToggleButton.classList.toggle("is-toggled", nextState);
+    boundingBoxToggleButton.setAttribute("aria-pressed", String(nextState));
+    boundingBoxToggleButton.setAttribute(
+      "aria-label",
+      nextState ? "Hide bounding box" : "Show bounding box"
+    );
+    boundingBoxToggleButton.title = nextState ? "Hide bounding box" : "Show bounding box";
+  }
+
   function setPlaceOnSelectedFaceEnabled(isEnabled) {
     if (!placeOnSelectedFaceButton) {
       return;
     }
 
     placeOnSelectedFaceButton.disabled = !isEnabled;
+  }
+
+  function setAlignBoundingBoxEnabled(isEnabled) {
+    if (!alignBoundingBoxAxesButton) {
+      return;
+    }
+
+    alignBoundingBoxAxesButton.disabled = !isEnabled;
   }
 
   function setFaceSelectionEnabled(enabled) {
@@ -477,6 +545,239 @@ function initViewer() {
     return selectFaceFromIntersection(hit);
   }
 
+  function centerModelOnGroundPlane() {
+    if (!currentModelObject) {
+      return false;
+    }
+
+    currentModelObject.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(currentModelObject);
+    if (bounds.isEmpty()) {
+      return false;
+    }
+
+    const boundsCenter = bounds.getCenter(new THREE.Vector3());
+    currentModelObject.position.x -= boundsCenter.x;
+    currentModelObject.position.z -= boundsCenter.z;
+    currentModelObject.position.y -= bounds.min.y;
+    currentModelObject.updateMatrixWorld(true);
+    return true;
+  }
+
+  function refreshModelMetricsAndView() {
+    if (!currentModelObject) {
+      return;
+    }
+
+    const metrics = getModelMetrics(currentModelObject);
+    updateModelInfoPanel({
+      fileSizeBytes: currentModelFileSizeBytes,
+      boundingBoxSize: metrics.boundingBoxSize,
+      triangleCount: metrics.triangleCount,
+    });
+
+    const bounds = new THREE.Box3().setFromObject(currentModelObject);
+    if (!bounds.isEmpty()) {
+      controls.target.copy(bounds.getCenter(new THREE.Vector3()));
+      controls.update();
+    }
+
+    storeCurrentViewAsDefault();
+  }
+
+  function collectHorizontalVertexSamples(maxSamples = 12000) {
+    if (!currentModelObject) {
+      return [];
+    }
+
+    const meshEntries = [];
+    let totalVertexCount = 0;
+
+    currentModelObject.updateMatrixWorld(true);
+    currentModelObject.traverse((node) => {
+      if (!node.isMesh || !node.geometry) {
+        return;
+      }
+
+      const positionAttribute = node.geometry.getAttribute("position");
+      if (!positionAttribute || positionAttribute.count <= 0) {
+        return;
+      }
+
+      meshEntries.push({ mesh: node, positionAttribute });
+      totalVertexCount += positionAttribute.count;
+    });
+
+    if (totalVertexCount <= 0) {
+      return [];
+    }
+
+    const stride = Math.max(1, Math.ceil(totalVertexCount / maxSamples));
+    const worldVertex = new THREE.Vector3();
+    const samples = [];
+
+    meshEntries.forEach(({ mesh, positionAttribute }) => {
+      for (let index = 0; index < positionAttribute.count; index += stride) {
+        worldVertex.fromBufferAttribute(positionAttribute, index);
+        worldVertex.applyMatrix4(mesh.matrixWorld);
+        samples.push({ x: worldVertex.x, z: worldVertex.z });
+      }
+    });
+
+    return samples;
+  }
+
+  function computeFootprintAreaForYaw(samples, yawRadians) {
+    if (!Array.isArray(samples) || samples.length === 0) {
+      return Number.POSITIVE_INFINITY;
+    }
+
+    const cosYaw = Math.cos(yawRadians);
+    const sinYaw = Math.sin(yawRadians);
+    let minX = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let minZ = Number.POSITIVE_INFINITY;
+    let maxZ = Number.NEGATIVE_INFINITY;
+
+    samples.forEach((sample) => {
+      const rotatedX = cosYaw * sample.x - sinYaw * sample.z;
+      const rotatedZ = sinYaw * sample.x + cosYaw * sample.z;
+      minX = Math.min(minX, rotatedX);
+      maxX = Math.max(maxX, rotatedX);
+      minZ = Math.min(minZ, rotatedZ);
+      maxZ = Math.max(maxZ, rotatedZ);
+    });
+
+    return Math.max(0, maxX - minX) * Math.max(0, maxZ - minZ);
+  }
+
+  function normalizeAngleRadians(angle) {
+    let normalized = angle;
+    while (normalized <= -Math.PI) {
+      normalized += 2 * Math.PI;
+    }
+    while (normalized > Math.PI) {
+      normalized -= 2 * Math.PI;
+    }
+    return normalized;
+  }
+
+  function getShortestEquivalentRightAngleRotation(angle) {
+    const quarterTurn = Math.PI / 2;
+    const snappedTurns = Math.round(angle / quarterTurn);
+    return normalizeAngleRadians(angle - snappedTurns * quarterTurn);
+  }
+
+  function computeBestYawAlignmentAngle(samples) {
+    if (!Array.isArray(samples) || samples.length < 3) {
+      return 0;
+    }
+
+    let sumX = 0;
+    let sumZ = 0;
+    let sumXX = 0;
+    let sumZZ = 0;
+    let sumXZ = 0;
+
+    samples.forEach((sample) => {
+      sumX += sample.x;
+      sumZ += sample.z;
+      sumXX += sample.x * sample.x;
+      sumZZ += sample.z * sample.z;
+      sumXZ += sample.x * sample.z;
+    });
+
+    const sampleCount = samples.length;
+    const meanX = sumX / sampleCount;
+    const meanZ = sumZ / sampleCount;
+    const covXX = sumXX / sampleCount - meanX * meanX;
+    const covZZ = sumZZ / sampleCount - meanZ * meanZ;
+    const covXZ = sumXZ / sampleCount - meanX * meanZ;
+
+    const principalAngle = 0.5 * Math.atan2(2 * covXZ, covXX - covZZ);
+    if (!Number.isFinite(principalAngle)) {
+      return 0;
+    }
+
+    const currentArea = computeFootprintAreaForYaw(samples, 0);
+    if (!Number.isFinite(currentArea) || currentArea <= 0) {
+      return 0;
+    }
+
+    const areaTolerance = Math.max(1e-6, currentArea * 1e-5);
+    const candidates = [
+      getShortestEquivalentRightAngleRotation(-principalAngle),
+      getShortestEquivalentRightAngleRotation(-principalAngle + Math.PI / 2),
+    ];
+
+    let bestAngle = 0;
+    let bestArea = currentArea;
+    candidates.forEach((candidate) => {
+      const candidateArea = computeFootprintAreaForYaw(samples, candidate);
+      if (!Number.isFinite(candidateArea)) {
+        return;
+      }
+
+      if (candidateArea < bestArea - areaTolerance) {
+        bestArea = candidateArea;
+        bestAngle = candidate;
+        return;
+      }
+
+      if (Math.abs(candidateArea - bestArea) <= areaTolerance && Math.abs(candidate) < Math.abs(bestAngle)) {
+        bestAngle = candidate;
+      }
+    });
+
+    const relativeImprovement = (currentArea - bestArea) / currentArea;
+    if (relativeImprovement < 1e-4) {
+      return 0;
+    }
+
+    return bestAngle;
+  }
+
+  function alignBoundingBoxToAxes() {
+    if (!currentModelObject) {
+      setStatus("Load a model before aligning the bounding box.", true);
+      return;
+    }
+
+    const samples = collectHorizontalVertexSamples();
+    if (samples.length < 3) {
+      setStatus("Unable to align bounding box: not enough geometry data.", true);
+      return;
+    }
+
+    const yawAngle = computeBestYawAlignmentAngle(samples);
+    if (!Number.isFinite(yawAngle)) {
+      setStatus("Bounding box alignment failed due to invalid rotation.", true);
+      return;
+    }
+
+    const didRotate = Math.abs(yawAngle) > 1e-6;
+    if (didRotate) {
+      const worldYawAxis = new THREE.Vector3(0, 1, 0);
+      const yawQuaternion = new THREE.Quaternion().setFromAxisAngle(worldYawAxis, yawAngle);
+      currentModelObject.quaternion.premultiply(yawQuaternion);
+      currentModelObject.updateMatrixWorld(true);
+    }
+
+    if (!centerModelOnGroundPlane()) {
+      setStatus("Unable to align bounding box: invalid model bounds.", true);
+      return;
+    }
+
+    refreshModelMetricsAndView();
+    clearSelectedFace();
+    setFaceSelectionEnabled(false);
+    setStatus(
+      didRotate
+        ? "Bounding box aligned to coordinate axes and model re-centered on ground."
+        : "Bounding box was already aligned; model re-centered on ground."
+    );
+  }
+
   function placeModelOnSelectedFace() {
     if (!currentModelObject) {
       setStatus("Load a model before placing it on a selected face.", true);
@@ -501,32 +802,12 @@ function initViewer() {
     currentModelObject.applyQuaternion(alignmentQuaternion);
     currentModelObject.updateMatrixWorld(true);
 
-    const bounds = new THREE.Box3().setFromObject(currentModelObject);
-    if (bounds.isEmpty()) {
+    if (!centerModelOnGroundPlane()) {
       setStatus("Unable to place model: invalid model bounds.", true);
       return;
     }
 
-    const boundsCenter = bounds.getCenter(new THREE.Vector3());
-    currentModelObject.position.x -= boundsCenter.x;
-    currentModelObject.position.z -= boundsCenter.z;
-    currentModelObject.position.y -= bounds.min.y;
-    currentModelObject.updateMatrixWorld(true);
-
-    const metrics = getModelMetrics(currentModelObject);
-    updateModelInfoPanel({
-      fileSizeBytes: currentModelFileSizeBytes,
-      boundingBoxSize: metrics.boundingBoxSize,
-      triangleCount: metrics.triangleCount,
-    });
-
-    if (metrics.boundingBoxSize) {
-      const center = new THREE.Box3().setFromObject(currentModelObject).getCenter(new THREE.Vector3());
-      controls.target.copy(center);
-      controls.update();
-    }
-
-    storeCurrentViewAsDefault();
+    refreshModelMetricsAndView();
     clearSelectedFace();
     setFaceSelectionEnabled(false);
     setStatus("Model placed on selected face, aligned, and centered on the ground plane.");
@@ -1073,6 +1354,9 @@ function initViewer() {
   function disposeCurrentModel() {
     clearSelectedFace();
     setFaceSelectionEnabled(false);
+    setAlignBoundingBoxEnabled(false);
+    setBoundingBoxToggleEnabled(false);
+    removeBoundingBoxHelper();
     currentModelFileSizeBytes = null;
 
     if (!currentModelObject) {
@@ -1148,6 +1432,9 @@ function initViewer() {
     currentModelObject = object3d;
     currentModelFileSizeBytes = fileSizeBytes;
     scene.add(currentModelObject);
+    setAlignBoundingBoxEnabled(true);
+    setBoundingBoxToggleEnabled(true);
+    syncBoundingBoxHelper();
 
     const metrics = getModelMetrics(currentModelObject);
     frameObject(currentModelObject);
@@ -1242,6 +1529,10 @@ function initViewer() {
   }
 
   function render() {
+    if (isBoundingBoxVisible) {
+      syncBoundingBoxHelper();
+    }
+
     controls.update();
     renderer.render(scene, camera);
     requestAnimationFrame(render);
@@ -1400,6 +1691,23 @@ function initViewer() {
     });
   }
 
+  if (alignBoundingBoxAxesButton) {
+    alignBoundingBoxAxesButton.addEventListener("click", () => {
+      alignBoundingBoxToAxes();
+    });
+  }
+
+  if (boundingBoxToggleButton) {
+    boundingBoxToggleButton.addEventListener("click", () => {
+      if (!currentModelObject) {
+        setStatus("Load a model before toggling the bounding box.", true);
+        return;
+      }
+
+      setBoundingBoxVisibility(!isBoundingBoxVisible);
+    });
+  }
+
   if (resetViewButton) {
     resetViewButton.addEventListener("click", () => {
       resetToDefaultView();
@@ -1448,6 +1756,9 @@ function initViewer() {
   setAxesVisibility(true);
   setWireframeMode(false);
   setModelInfoVisibility(true);
+  setAlignBoundingBoxEnabled(false);
+  setBoundingBoxToggleEnabled(false);
+  setBoundingBoxVisibility(false);
   setFaceSelectionEnabled(false);
   clearSelectedFace();
   updateModelInfoPanel();

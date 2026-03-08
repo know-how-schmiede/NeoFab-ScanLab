@@ -15,6 +15,10 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.4.2 (2026-03-08)
+- Viewer: Toggle-Button zum Ein-/Ausblenden der Bounding Box um das geladene Modell hinzugefuegt.
+- Projektversion auf `0.4.2` erhoeht.
+
 ## 0.4.1 (2026-03-08)
 - Viewer: Platzierung per "Place model on selected face" zentriert das Modell auf der Grundebene.
 - Projektversion auf `0.4.1` erhoeht.
