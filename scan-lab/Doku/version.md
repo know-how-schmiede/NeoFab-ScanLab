@@ -15,6 +15,10 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.3.6 (2026-03-08)
+- Viewer: Icon fuer "Ansicht zuruecksetzen" auf ein Home-Symbol umgestellt.
+- Projektversion auf `0.3.6` erhoeht.
+
 ## 0.3.5 (2026-03-08)
 - Viewer: Upload-Button fuer lokale STL/GLB-Dateien integriert.
 - Viewer: Drag-and-Drop-Zone fuer lokale STL/GLB-Dateien hinzugefuegt.

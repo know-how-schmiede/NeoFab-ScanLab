@@ -1,3 +1,3 @@
 """Project version metadata for scan-lab."""
 
-__version__ = "0.3.5"
+__version__ = "0.3.6"

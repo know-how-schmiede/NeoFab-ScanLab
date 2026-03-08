@@ -14,6 +14,7 @@ Sortierung: von oben nach unten nach Prioritaet und Umsetzbarkeit
 - [ ] Viewer-Shortcuts (Reset, Rotation, Grid) ueber Tastatur
 - [ ] Persistenz der letzten Viewer-Einstellungen (localStorage)
 - [ ] Color-Auswahl als Favorit speichern
+- [ ] "Home"-Icon für Standart-Ansicht zurücksetzen
 
 ## 2) Hohe Prioritaet, mittlere Umsetzbarkeit
 
