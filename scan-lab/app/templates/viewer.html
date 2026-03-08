@@ -20,6 +20,7 @@
           class="model-button"
           data-model-url="{{ model.url }}"
           data-model-name="{{ model.name }}"
+          data-model-size-bytes="{{ model.size_bytes if model.size_bytes is not none else '' }}"
         >
           {{ model.name }}
         </button>
@@ -120,6 +121,23 @@
   </section>
 
   <div id="viewer-container" class="viewer-container">
+    <aside id="viewer-model-info" class="viewer-model-info" aria-label="Model information">
+      <h4>Model info</h4>
+      <dl>
+        <div class="viewer-model-info-row">
+          <dt>File size</dt>
+          <dd id="model-info-file-size">n/a</dd>
+        </div>
+        <div class="viewer-model-info-row">
+          <dt>Bounding box</dt>
+          <dd id="model-info-bounds">n/a</dd>
+        </div>
+        <div class="viewer-model-info-row">
+          <dt>Triangles</dt>
+          <dd id="model-info-triangles">n/a</dd>
+        </div>
+      </dl>
+    </aside>
     <div class="viewer-icon-toolbar" role="group" aria-label="Ansichtswerkzeuge">
       <button
         type="button"
@@ -190,6 +208,20 @@
           <path d="M5 5h14v14H5z"></path>
           <path d="M5 5l14 14"></path>
           <path d="M19 5 5 19"></path>
+        </svg>
+      </button>
+      <button
+        type="button"
+        id="viewer-toggle-model-info"
+        class="viewer-icon-button"
+        aria-label="Modellinfos ausblenden"
+        title="Infos aus"
+        aria-pressed="true"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="8"></circle>
+          <path d="M12 10v6"></path>
+          <path d="M12 7h.01"></path>
         </svg>
       </button>
     </div>

@@ -17,9 +17,14 @@ const rotationToggleButton = document.getElementById("viewer-toggle-rotation");
 const gridToggleButton = document.getElementById("viewer-toggle-grid");
 const axesToggleButton = document.getElementById("viewer-toggle-axes");
 const wireframeToggleButton = document.getElementById("viewer-toggle-wireframe");
+const modelInfoToggleButton = document.getElementById("viewer-toggle-model-info");
 const localModelButton = document.getElementById("local-model-button");
 const localModelInput = document.getElementById("local-model-input");
 const viewerDropzone = document.getElementById("viewer-dropzone");
+const modelInfoPanel = document.getElementById("viewer-model-info");
+const modelInfoFileSize = document.getElementById("model-info-file-size");
+const modelInfoBounds = document.getElementById("model-info-bounds");
+const modelInfoTriangles = document.getElementById("model-info-triangles");
 
 const DEFAULT_MODEL_COLOR = "#8aa2c8";
 const AUTO_ROTATE_SPEED = 1.6;
@@ -57,6 +62,37 @@ function getFileExtension(fileName) {
 
   const segments = fileName.toLowerCase().split(".");
   return segments.length > 1 ? segments.pop() : "";
+}
+
+function formatFileSize(bytesValue) {
+  const bytes = Number(bytesValue);
+  if (!Number.isFinite(bytes) || bytes < 0) {
+    return "Unknown";
+  }
+
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${value.toFixed(2)} ${units[unitIndex]}`;
+}
+
+function formatDimension(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return "n/a";
+  }
+
+  return numericValue.toFixed(2);
 }
 
 function initViewer() {
@@ -110,6 +146,7 @@ function initViewer() {
   let isGridVisible = true;
   let isAxesVisible = true;
   let isWireframeEnabled = false;
+  let isModelInfoVisible = true;
   const builtInPresetColors = new Set(
     colorPresetButtons.map((button) => normalizeHexColor(button.dataset.color)).filter(Boolean)
   );
@@ -243,6 +280,87 @@ function initViewer() {
       nextState ? "Wireframe ausschalten" : "Wireframe einschalten"
     );
     wireframeToggleButton.title = nextState ? "Solid" : "Wireframe";
+  }
+
+  function setModelInfoVisibility(visible) {
+    const nextState = Boolean(visible);
+    isModelInfoVisible = nextState;
+
+    if (modelInfoPanel) {
+      modelInfoPanel.classList.toggle("is-hidden", !nextState);
+    }
+
+    if (!modelInfoToggleButton) {
+      return;
+    }
+
+    modelInfoToggleButton.classList.toggle("is-toggled", nextState);
+    modelInfoToggleButton.setAttribute("aria-pressed", String(nextState));
+    modelInfoToggleButton.setAttribute(
+      "aria-label",
+      nextState ? "Modellinfos ausblenden" : "Modellinfos einblenden"
+    );
+    modelInfoToggleButton.title = nextState ? "Infos aus" : "Infos ein";
+  }
+
+  function countTrianglesInObject(object3d) {
+    if (!object3d) {
+      return 0;
+    }
+
+    let triangleCount = 0;
+    object3d.traverse((node) => {
+      if (!node.isMesh || !node.geometry) {
+        return;
+      }
+
+      const geometry = node.geometry;
+      if (geometry.index && Number.isFinite(geometry.index.count)) {
+        triangleCount += geometry.index.count / 3;
+        return;
+      }
+
+      const positionAttribute = geometry.getAttribute("position");
+      if (positionAttribute && Number.isFinite(positionAttribute.count)) {
+        triangleCount += positionAttribute.count / 3;
+      }
+    });
+
+    return Math.round(triangleCount);
+  }
+
+  function getModelMetrics(object3d) {
+    const bounds = new THREE.Box3().setFromObject(object3d);
+    if (bounds.isEmpty()) {
+      return { boundingBoxSize: null, triangleCount: 0 };
+    }
+
+    return {
+      boundingBoxSize: bounds.getSize(new THREE.Vector3()),
+      triangleCount: countTrianglesInObject(object3d),
+    };
+  }
+
+  function updateModelInfoPanel({ fileSizeBytes = null, boundingBoxSize = null, triangleCount = null } = {}) {
+    if (modelInfoFileSize) {
+      modelInfoFileSize.textContent = formatFileSize(fileSizeBytes);
+    }
+
+    if (modelInfoBounds) {
+      if (boundingBoxSize) {
+        modelInfoBounds.textContent =
+          `${formatDimension(boundingBoxSize.x)} x ${formatDimension(boundingBoxSize.y)} x ${formatDimension(
+            boundingBoxSize.z
+          )}`;
+      } else {
+        modelInfoBounds.textContent = "n/a";
+      }
+    }
+
+    if (modelInfoTriangles) {
+      const triangles = Number(triangleCount);
+      modelInfoTriangles.textContent = Number.isFinite(triangles) ? triangles.toLocaleString("en-US") : "n/a";
+    }
   }
 
   function setDropzoneDragActive(isActive) {
@@ -575,19 +693,25 @@ function initViewer() {
     return new THREE.Mesh(geometry, material);
   }
 
-  function finalizeLoadedModel(object3d, modelName, sourceButton = null) {
+  function finalizeLoadedModel(object3d, modelName, { sourceButton = null, fileSizeBytes = null } = {}) {
     disposeCurrentModel();
     currentModelObject = object3d;
     scene.add(currentModelObject);
 
+    const metrics = getModelMetrics(currentModelObject);
     frameObject(currentModelObject);
     applyModelColor(`#${currentModelColor.getHexString()}`);
     setWireframeMode(isWireframeEnabled);
+    updateModelInfoPanel({
+      fileSizeBytes,
+      boundingBoxSize: metrics.boundingBoxSize,
+      triangleCount: metrics.triangleCount,
+    });
     setActiveButton(sourceButton);
     setStatus(`Loaded ${modelName}.`);
   }
 
-  function loadModel(modelUrl, modelName, sourceButton) {
+  function loadModel(modelUrl, modelName, sourceButton, fileSizeBytes = null) {
     if (!modelUrl) {
       setStatus("No model URL provided.", true);
       return;
@@ -599,7 +723,7 @@ function initViewer() {
       modelUrl,
       (geometry) => {
         const mesh = createStlMesh(geometry);
-        finalizeLoadedModel(mesh, modelName, sourceButton);
+        finalizeLoadedModel(mesh, modelName, { sourceButton, fileSizeBytes });
       },
       undefined,
       () => {
@@ -634,7 +758,7 @@ function initViewer() {
       if (extension === "stl") {
         const geometry = stlLoader.parse(buffer);
         const mesh = createStlMesh(geometry);
-        finalizeLoadedModel(mesh, file.name);
+        finalizeLoadedModel(mesh, file.name, { fileSizeBytes: file.size });
         return;
       }
 
@@ -645,7 +769,7 @@ function initViewer() {
         throw new Error("GLB does not contain a scene.");
       }
 
-      finalizeLoadedModel(gltfRoot, file.name);
+      finalizeLoadedModel(gltfRoot, file.name, { fileSizeBytes: file.size });
     } catch (error) {
       console.error("Local model load failed.", error);
       setStatus(`Failed to load ${file.name}.`, true);
@@ -688,7 +812,13 @@ function initViewer() {
 
   modelButtons.forEach((button) => {
     button.addEventListener("click", () => {
-      loadModel(button.dataset.modelUrl, button.dataset.modelName, button);
+      const modelSizeBytes = Number.parseInt(button.dataset.modelSizeBytes || "", 10);
+      loadModel(
+        button.dataset.modelUrl,
+        button.dataset.modelName,
+        button,
+        Number.isFinite(modelSizeBytes) ? modelSizeBytes : null
+      );
     });
   });
 
@@ -807,16 +937,30 @@ function initViewer() {
     });
   }
 
+  if (modelInfoToggleButton) {
+    modelInfoToggleButton.addEventListener("click", () => {
+      setModelInfoVisibility(!isModelInfoVisible);
+    });
+  }
+
   setResetViewEnabled(false);
   setAutoRotation(false);
   setGridVisibility(true);
   setAxesVisibility(true);
   setWireframeMode(false);
+  setModelInfoVisibility(true);
+  updateModelInfoPanel();
   applyModelColor(DEFAULT_MODEL_COLOR);
 
   if (modelButtons.length > 0) {
     const firstButton = modelButtons[0];
-    loadModel(firstButton.dataset.modelUrl, firstButton.dataset.modelName, firstButton);
+    const firstModelSizeBytes = Number.parseInt(firstButton.dataset.modelSizeBytes || "", 10);
+    loadModel(
+      firstButton.dataset.modelUrl,
+      firstButton.dataset.modelName,
+      firstButton,
+      Number.isFinite(firstModelSizeBytes) ? firstModelSizeBytes : null
+    );
   } else {
     setStatus("No sample model files found in sample_models.", true);
   }

@@ -20,10 +20,21 @@ def viewer():
     """Render 3D viewer page."""
     models_dir = Path(current_app.config["SAMPLE_MODELS_DIR"])
     models = list_available_models(models_dir)
-    model_entries = [
-        {"name": model_name, "url": url_for("main.sample_model", filename=model_name)}
-        for model_name in models
-    ]
+    model_entries = []
+    for model_name in models:
+        size_bytes = None
+        try:
+            size_bytes = (models_dir / model_name).stat().st_size
+        except OSError:
+            size_bytes = None
+
+        model_entries.append(
+            {
+                "name": model_name,
+                "url": url_for("main.sample_model", filename=model_name),
+                "size_bytes": size_bytes,
+            }
+        )
     return render_template("viewer.html", models=model_entries)
 
 

@@ -167,6 +167,58 @@ body {
   opacity: 0.55;
 }
 
+.viewer-model-info {
+  position: absolute;
+  top: 0.8rem;
+  left: 0.8rem;
+  z-index: 3;
+  min-width: 210px;
+  max-width: min(68vw, 300px);
+  border: 1px solid #95aacc;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 4px 14px rgba(16, 26, 43, 0.16);
+  padding: 0.55rem 0.65rem;
+}
+
+.viewer-model-info.is-hidden {
+  display: none;
+}
+
+.viewer-model-info h4 {
+  margin: 0 0 0.35rem;
+  font-size: 0.87rem;
+  color: #213752;
+}
+
+.viewer-model-info dl {
+  margin: 0;
+}
+
+.viewer-model-info-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.55rem;
+  align-items: baseline;
+  font-size: 0.8rem;
+  color: #314a66;
+}
+
+.viewer-model-info-row + .viewer-model-info-row {
+  margin-top: 0.18rem;
+}
+
+.viewer-model-info-row dt {
+  font-weight: 600;
+}
+
+.viewer-model-info-row dd {
+  margin: 0;
+  text-align: right;
+  color: #23384f;
+  font-variant-numeric: tabular-nums;
+}
+
 .model-list {
   margin-top: 1.5rem;
 }
@@ -358,6 +410,17 @@ body {
   .viewer-icon-toolbar {
     top: 0.55rem;
     right: 0.55rem;
+  }
+
+  .viewer-model-info {
+    top: 0.55rem;
+    left: 0.55rem;
+    min-width: 180px;
+    padding: 0.5rem 0.55rem;
+  }
+
+  .viewer-model-info-row {
+    font-size: 0.76rem;
   }
 
   .viewer-controls {

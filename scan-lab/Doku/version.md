@@ -15,6 +15,12 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.3.10 (2026-03-08)
+- Viewer: Modellinfo-Overlay links oben integriert (Dateigroesse, Bounding Box, Dreiecksanzahl).
+- Viewer: Toolbar-Toggle zum Ein-/Ausblenden der Modellinfos hinzugefuegt.
+- Modell-Dateigroesse wird fuer Sample-Modelle aus dem Backend und fuer lokale Uploads aus der Datei uebernommen.
+- Projektversion auf `0.3.10` erhoeht.
+
 ## 0.3.9 (2026-03-08)
 - Viewer: Color-Favoriten werden im Browser via `localStorage` persistent gespeichert.
 - Viewer: Favoriten koennen ueber den neuen Button "Remove favorite" entfernt werden.
