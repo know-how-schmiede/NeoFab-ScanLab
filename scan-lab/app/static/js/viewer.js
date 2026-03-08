@@ -206,9 +206,9 @@ function initViewer() {
     rotationToggleButton.setAttribute("aria-pressed", String(nextState));
     rotationToggleButton.setAttribute(
       "aria-label",
-      nextState ? "Automatische Rotation ausschalten" : "Automatische Rotation einschalten"
+      nextState ? "Disable auto-rotation" : "Enable auto-rotation"
     );
-    rotationToggleButton.title = nextState ? "Rotation aus" : "Rotation ein";
+    rotationToggleButton.title = nextState ? "Disable auto-rotation" : "Enable auto-rotation";
   }
 
   function setGridVisibility(visible) {
@@ -224,9 +224,9 @@ function initViewer() {
     gridToggleButton.setAttribute("aria-pressed", String(nextState));
     gridToggleButton.setAttribute(
       "aria-label",
-      nextState ? "Gitter ausblenden" : "Gitter einblenden"
+      nextState ? "Hide grid" : "Show grid"
     );
-    gridToggleButton.title = nextState ? "Gitter aus" : "Gitter ein";
+    gridToggleButton.title = nextState ? "Hide grid" : "Show grid";
   }
 
   function setAxesVisibility(visible) {
@@ -242,9 +242,9 @@ function initViewer() {
     axesToggleButton.setAttribute("aria-pressed", String(nextState));
     axesToggleButton.setAttribute(
       "aria-label",
-      nextState ? "Achsen-Helfer ausblenden" : "Achsen-Helfer einblenden"
+      nextState ? "Hide axes" : "Show axes"
     );
-    axesToggleButton.title = nextState ? "Achsen aus" : "Achsen ein";
+    axesToggleButton.title = nextState ? "Hide axes" : "Show axes";
   }
 
   function setWireframeMode(enabled) {
@@ -279,7 +279,7 @@ function initViewer() {
       "aria-label",
       nextState ? "Wireframe ausschalten" : "Wireframe einschalten"
     );
-    wireframeToggleButton.title = nextState ? "Solid" : "Wireframe";
+    wireframeToggleButton.title = nextState ? "Show solid" : "Enable wireframe";
   }
 
   function setModelInfoVisibility(visible) {
@@ -298,9 +298,9 @@ function initViewer() {
     modelInfoToggleButton.setAttribute("aria-pressed", String(nextState));
     modelInfoToggleButton.setAttribute(
       "aria-label",
-      nextState ? "Modellinfos ausblenden" : "Modellinfos einblenden"
+      nextState ? "Hide model info" : "Show model info"
     );
-    modelInfoToggleButton.title = nextState ? "Infos aus" : "Infos ein";
+    modelInfoToggleButton.title = nextState ? "Hide model info" : "Show model info";
   }
 
   function countTrianglesInObject(object3d) {

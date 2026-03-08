@@ -21,6 +21,7 @@
           data-model-url="{{ model.url }}"
           data-model-name="{{ model.name }}"
           data-model-size-bytes="{{ model.size_bytes if model.size_bytes is not none else '' }}"
+          title="Load model {{ model.name }}"
         >
           {{ model.name }}
         </button>
@@ -35,7 +36,14 @@
   <section class="viewer-controls" aria-label="Local model upload controls">
     <h3>Local model upload</h3>
     <div class="viewer-control-row">
-      <button type="button" id="local-model-button" class="control-button">Choose STL/GLB file</button>
+      <button
+        type="button"
+        id="local-model-button"
+        class="control-button"
+        title="Choose and load a local STL or GLB file"
+      >
+        Choose STL/GLB file
+      </button>
       <input
         type="file"
         id="local-model-input"
@@ -50,6 +58,7 @@
       role="button"
       tabindex="0"
       aria-label="Drop local STL or GLB file here"
+      title="Drop a local STL or GLB file to load it"
     >
       Drag and drop STL/GLB here
     </div>
@@ -60,11 +69,18 @@
     <div class="viewer-control-row">
       <label for="model-color-input">Custom color</label>
       <input type="color" id="model-color-input" value="#8aa2c8" />
-      <button type="button" id="model-color-reset" class="control-button">Reset</button>
-      <button type="button" id="model-color-add-favorite" class="control-button">
+      <button type="button" id="model-color-reset" class="control-button" title="Reset to default color">
+        Reset
+      </button>
+      <button type="button" id="model-color-add-favorite" class="control-button" title="Add current color as favorite">
         Add favorite
       </button>
-      <button type="button" id="model-color-remove-favorite" class="control-button">
+      <button
+        type="button"
+        id="model-color-remove-favorite"
+        class="control-button"
+        title="Remove current color from favorites"
+      >
         Remove favorite
       </button>
     </div>
@@ -138,13 +154,13 @@
         </div>
       </dl>
     </aside>
-    <div class="viewer-icon-toolbar" role="group" aria-label="Ansichtswerkzeuge">
+    <div class="viewer-icon-toolbar" role="group" aria-label="View tools">
       <button
         type="button"
         id="viewer-reset-view"
         class="viewer-icon-button"
-        aria-label="Standardansicht wiederherstellen"
-        title="Standardansicht wiederherstellen"
+        aria-label="Restore default view"
+        title="Restore default view"
         disabled
       >
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -157,8 +173,8 @@
         type="button"
         id="viewer-toggle-rotation"
         class="viewer-icon-button"
-        aria-label="Automatische Rotation einschalten"
-        title="Rotation ein"
+        aria-label="Enable auto-rotation"
+        title="Enable auto-rotation"
         aria-pressed="false"
       >
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -172,8 +188,8 @@
         type="button"
         id="viewer-toggle-grid"
         class="viewer-icon-button"
-        aria-label="Gitter ausblenden"
-        title="Gitter aus"
+        aria-label="Hide grid"
+        title="Hide grid"
         aria-pressed="true"
       >
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -186,8 +202,8 @@
         type="button"
         id="viewer-toggle-axes"
         class="viewer-icon-button"
-        aria-label="Achsen-Helfer ausblenden"
-        title="Achsen aus"
+        aria-label="Hide axes"
+        title="Hide axes"
         aria-pressed="true"
       >
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -200,8 +216,8 @@
         type="button"
         id="viewer-toggle-wireframe"
         class="viewer-icon-button"
-        aria-label="Wireframe einschalten"
-        title="Wireframe"
+        aria-label="Enable wireframe"
+        title="Enable wireframe"
         aria-pressed="false"
       >
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -214,8 +230,8 @@
         type="button"
         id="viewer-toggle-model-info"
         class="viewer-icon-button"
-        aria-label="Modellinfos ausblenden"
-        title="Infos aus"
+        aria-label="Hide model info"
+        title="Hide model info"
         aria-pressed="true"
       >
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">

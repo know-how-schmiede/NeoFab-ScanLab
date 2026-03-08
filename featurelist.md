@@ -16,7 +16,7 @@ Sortierung: von oben nach unten nach Prioritaet und Umsetzbarkeit
 - [X] Color-Auswahl als Favorit speichern
 - [X] "Home"-Icon für Standart-Ansicht zurücksetzen
 - [X] Persistenz der Color-Favoriten incl. Löschen der Color-Favoriten
-- [ ] Tooltip Anzeige für Buttons im Viewer
+- [X] Tooltip Anzeige für Buttons im Viewer
 
 ## 2) Hohe Prioritaet, mittlere Umsetzbarkeit
 
