@@ -376,6 +376,38 @@ body {
   box-shadow: 0 0 0 3px rgba(11, 109, 255, 0.2);
 }
 
+.lighting-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.lighting-preset {
+  cursor: pointer;
+  border: 1px solid #a6b8d4;
+  border-radius: 999px;
+  padding: 0.42rem 0.8rem;
+  background: #ffffff;
+  color: #23384f;
+  font-size: 0.87rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.lighting-preset:hover {
+  border-color: #0b6dff;
+  color: #0b336f;
+  background: #f0f6ff;
+}
+
+.lighting-preset.is-active,
+.lighting-preset[aria-pressed="true"] {
+  border-color: #0b6dff;
+  color: #0b336f;
+  background: #dce9ff;
+  box-shadow: 0 0 0 3px rgba(11, 109, 255, 0.14);
+}
+
 .viewer-status {
   margin-top: 0.8rem;
   font-size: 0.95rem;

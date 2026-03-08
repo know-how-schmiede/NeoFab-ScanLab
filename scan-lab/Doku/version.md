@@ -15,6 +15,15 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.4.1 (2026-03-08)
+- Viewer: Platzierung per "Place model on selected face" zentriert das Modell auf der Grundebene.
+- Projektversion auf `0.4.1` erhoeht.
+
+## 0.4.0 (2026-03-08)
+- Viewer: Lichtprofile als Presets integriert (`Studio`, `Technical`, `High Contrast`).
+- Viewer: Beleuchtungscharakteristik (Lichtintensitaet, Farbe, Richtung) pro Profil umschaltbar.
+- Projektversion auf `0.4.0` erhoeht.
+
 ## 0.3.12 (2026-03-08)
 - Viewer: Screenshot-Export als PNG aus der aktuellen Kameraposition integriert.
 - Neuer Toolbar-Button "Export screenshot as PNG" hinzugefuegt.

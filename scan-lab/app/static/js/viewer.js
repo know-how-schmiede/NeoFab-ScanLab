@@ -12,7 +12,10 @@ const modelColorAddFavoriteButton = document.getElementById("model-color-add-fav
 const modelColorRemoveFavoriteButton = document.getElementById("model-color-remove-favorite");
 const colorPresetsContainer = document.querySelector(".color-presets");
 let colorPresetButtons = Array.from(document.querySelectorAll(".color-preset"));
+let lightingPresetButtons = Array.from(document.querySelectorAll(".lighting-preset"));
 const resetViewButton = document.getElementById("viewer-reset-view");
+const faceSelectionToggleButton = document.getElementById("viewer-toggle-face-selection");
+const placeOnSelectedFaceButton = document.getElementById("viewer-place-on-selected-face");
 const rotationToggleButton = document.getElementById("viewer-toggle-rotation");
 const gridToggleButton = document.getElementById("viewer-toggle-grid");
 const axesToggleButton = document.getElementById("viewer-toggle-axes");
@@ -28,9 +31,40 @@ const modelInfoBounds = document.getElementById("model-info-bounds");
 const modelInfoTriangles = document.getElementById("model-info-triangles");
 
 const DEFAULT_MODEL_COLOR = "#8aa2c8";
+const DEFAULT_LIGHT_PROFILE = "studio";
 const AUTO_ROTATE_SPEED = 1.6;
 const SUPPORTED_LOCAL_EXTENSIONS = new Set(["stl", "glb"]);
 const COLOR_FAVORITES_STORAGE_KEY = "scanlab.viewer.favorite_colors.v1";
+const FACE_GROUND_TARGET_NORMAL = new THREE.Vector3(0, -1, 0);
+const LIGHT_PROFILES = {
+  studio: {
+    label: "Studio",
+    sceneBackground: 0xe8eff9,
+    exposure: 1.0,
+    hemi: { skyColor: 0xffffff, groundColor: 0x3f4d60, intensity: 1.0 },
+    key: { color: 0xffffff, intensity: 1.15, position: [60, 120, 80] },
+    fill: { color: 0xd6e3ff, intensity: 0.5, position: [-85, 60, -70] },
+    rim: { color: 0xb8d1ff, intensity: 0.35, position: [0, 95, -115] },
+  },
+  technical: {
+    label: "Technical",
+    sceneBackground: 0xebf1f9,
+    exposure: 1.05,
+    hemi: { skyColor: 0xf8fbff, groundColor: 0x5f6d81, intensity: 0.9 },
+    key: { color: 0xf7fbff, intensity: 1.2, position: [45, 140, 45] },
+    fill: { color: 0xf2f7ff, intensity: 0.32, position: [-70, 75, -55] },
+    rim: { color: 0xd5e1f3, intensity: 0.2, position: [0, 110, -95] },
+  },
+  "high-contrast": {
+    label: "High Contrast",
+    sceneBackground: 0xd4deed,
+    exposure: 1.12,
+    hemi: { skyColor: 0xf4f8ff, groundColor: 0x253446, intensity: 0.35 },
+    key: { color: 0xffffff, intensity: 1.75, position: [110, 150, 55] },
+    fill: { color: 0xd7e4ff, intensity: 0.12, position: [-120, 45, -60] },
+    rim: { color: 0x9fbdf0, intensity: 0.9, position: [-15, 120, -130] },
+  },
+};
 
 function setStatus(message, isError = false) {
   if (!statusElement) {
@@ -128,9 +162,14 @@ function initViewer() {
   const hemiLight = new THREE.HemisphereLight(0xffffff, 0x3f4d60, 1.0);
   scene.add(hemiLight);
 
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-  dirLight.position.set(60, 120, 80);
-  scene.add(dirLight);
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.0);
+  scene.add(keyLight);
+
+  const fillLight = new THREE.DirectionalLight(0xd6e3ff, 0.5);
+  scene.add(fillLight);
+
+  const rimLight = new THREE.DirectionalLight(0xb8d1ff, 0.35);
+  scene.add(rimLight);
 
   const grid = new THREE.GridHelper(220, 22, 0x8ea4c5, 0xc6d4ea);
   scene.add(grid);
@@ -140,7 +179,13 @@ function initViewer() {
 
   const stlLoader = new STLLoader();
   const gltfLoader = new GLTFLoader();
+  const raycaster = new THREE.Raycaster();
+  const pointerNdc = new THREE.Vector2();
   let currentModelObject = null;
+  let currentModelFileSizeBytes = null;
+  let selectedFaceNormalWorld = null;
+  let faceSelectionMarker = null;
+  let isFaceSelectionEnabled = false;
   let currentModelColor = new THREE.Color(DEFAULT_MODEL_COLOR);
   let defaultViewState = null;
   let isAutoRotationEnabled = false;
@@ -302,6 +347,189 @@ function initViewer() {
       nextState ? "Hide model info" : "Show model info"
     );
     modelInfoToggleButton.title = nextState ? "Hide model info" : "Show model info";
+  }
+
+  function setPlaceOnSelectedFaceEnabled(isEnabled) {
+    if (!placeOnSelectedFaceButton) {
+      return;
+    }
+
+    placeOnSelectedFaceButton.disabled = !isEnabled;
+  }
+
+  function setFaceSelectionEnabled(enabled) {
+    const nextState = Boolean(enabled);
+    isFaceSelectionEnabled = nextState;
+
+    if (!faceSelectionToggleButton) {
+      return;
+    }
+
+    faceSelectionToggleButton.classList.toggle("is-toggled", nextState);
+    faceSelectionToggleButton.setAttribute("aria-pressed", String(nextState));
+    faceSelectionToggleButton.setAttribute(
+      "aria-label",
+      nextState ? "Disable face selection" : "Enable face selection"
+    );
+    faceSelectionToggleButton.title = nextState ? "Disable face selection" : "Enable face selection";
+  }
+
+  function removeFaceSelectionMarker() {
+    if (!faceSelectionMarker) {
+      return;
+    }
+
+    scene.remove(faceSelectionMarker);
+
+    if (faceSelectionMarker.line) {
+      faceSelectionMarker.line.geometry.dispose();
+      faceSelectionMarker.line.material.dispose();
+    }
+
+    if (faceSelectionMarker.cone) {
+      faceSelectionMarker.cone.geometry.dispose();
+      faceSelectionMarker.cone.material.dispose();
+    }
+
+    faceSelectionMarker = null;
+  }
+
+  function clearSelectedFace() {
+    selectedFaceNormalWorld = null;
+    removeFaceSelectionMarker();
+    setPlaceOnSelectedFaceEnabled(false);
+  }
+
+  function refreshFaceSelectionMarker(origin, normal) {
+    removeFaceSelectionMarker();
+
+    const direction = normal.clone().normalize();
+    if (!Number.isFinite(direction.lengthSq()) || direction.lengthSq() <= 0) {
+      return;
+    }
+
+    let markerLength = 22;
+    if (currentModelObject) {
+      const bounds = new THREE.Box3().setFromObject(currentModelObject);
+      if (!bounds.isEmpty()) {
+        const size = bounds.getSize(new THREE.Vector3());
+        markerLength = Math.max(18, Math.min(Math.max(size.x, size.y, size.z) * 0.24, 72));
+      }
+    }
+
+    faceSelectionMarker = new THREE.ArrowHelper(
+      direction,
+      origin.clone(),
+      markerLength,
+      0xff8a00,
+      markerLength * 0.28,
+      markerLength * 0.16
+    );
+    scene.add(faceSelectionMarker);
+  }
+
+  function selectFaceFromIntersection(intersection) {
+    if (!intersection || !intersection.face || !intersection.object) {
+      return false;
+    }
+
+    const normalMatrix = new THREE.Matrix3().getNormalMatrix(intersection.object.matrixWorld);
+    const worldNormal = intersection.face.normal.clone().applyMatrix3(normalMatrix).normalize();
+    if (!Number.isFinite(worldNormal.lengthSq()) || worldNormal.lengthSq() <= 0) {
+      setStatus("Selected face has no valid normal.", true);
+      return false;
+    }
+
+    selectedFaceNormalWorld = worldNormal;
+    refreshFaceSelectionMarker(intersection.point.clone(), worldNormal);
+    setPlaceOnSelectedFaceEnabled(true);
+    setFaceSelectionEnabled(false);
+    setStatus("Face selected. Click 'Place model on selected face'.");
+    return true;
+  }
+
+  function pickFaceFromClientPosition(clientX, clientY) {
+    if (!currentModelObject || !renderer || !renderer.domElement) {
+      setStatus("Load a model before selecting a face.", true);
+      return false;
+    }
+
+    const rect = renderer.domElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      setStatus("Unable to read viewer size for face selection.", true);
+      return false;
+    }
+
+    pointerNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    pointerNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(pointerNdc, camera);
+    const intersections = raycaster.intersectObject(currentModelObject, true);
+    const hit = intersections.find((entry) => {
+      return entry.object && entry.object.isMesh && entry.face;
+    });
+
+    if (!hit) {
+      setStatus("No model face selected. Click directly on the model surface.", true);
+      return false;
+    }
+
+    return selectFaceFromIntersection(hit);
+  }
+
+  function placeModelOnSelectedFace() {
+    if (!currentModelObject) {
+      setStatus("Load a model before placing it on a selected face.", true);
+      return;
+    }
+
+    if (!selectedFaceNormalWorld) {
+      setStatus("Select a face first.", true);
+      return;
+    }
+
+    const sourceNormal = selectedFaceNormalWorld.clone().normalize();
+    if (!Number.isFinite(sourceNormal.lengthSq()) || sourceNormal.lengthSq() <= 0) {
+      setStatus("Selected face normal is invalid.", true);
+      return;
+    }
+
+    const alignmentQuaternion = new THREE.Quaternion().setFromUnitVectors(
+      sourceNormal,
+      FACE_GROUND_TARGET_NORMAL
+    );
+    currentModelObject.applyQuaternion(alignmentQuaternion);
+    currentModelObject.updateMatrixWorld(true);
+
+    const bounds = new THREE.Box3().setFromObject(currentModelObject);
+    if (bounds.isEmpty()) {
+      setStatus("Unable to place model: invalid model bounds.", true);
+      return;
+    }
+
+    const boundsCenter = bounds.getCenter(new THREE.Vector3());
+    currentModelObject.position.x -= boundsCenter.x;
+    currentModelObject.position.z -= boundsCenter.z;
+    currentModelObject.position.y -= bounds.min.y;
+    currentModelObject.updateMatrixWorld(true);
+
+    const metrics = getModelMetrics(currentModelObject);
+    updateModelInfoPanel({
+      fileSizeBytes: currentModelFileSizeBytes,
+      boundingBoxSize: metrics.boundingBoxSize,
+      triangleCount: metrics.triangleCount,
+    });
+
+    if (metrics.boundingBoxSize) {
+      const center = new THREE.Box3().setFromObject(currentModelObject).getCenter(new THREE.Vector3());
+      controls.target.copy(center);
+      controls.update();
+    }
+
+    storeCurrentViewAsDefault();
+    clearSelectedFace();
+    setFaceSelectionEnabled(false);
+    setStatus("Model placed on selected face, aligned, and centered on the ground plane.");
   }
 
   function buildScreenshotFilename() {
@@ -546,6 +774,47 @@ function initViewer() {
     }
 
     viewerDropzone.classList.toggle("is-dragover", Boolean(isActive));
+  }
+
+  function setActiveLightingPreset(profileKey) {
+    lightingPresetButtons.forEach((button) => {
+      const isActive = button.dataset.lightProfile === profileKey;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-pressed", String(isActive));
+    });
+  }
+
+  function applyLightingProfile(profileKey, { quiet = false } = {}) {
+    const profile = LIGHT_PROFILES[profileKey];
+    if (!profile) {
+      setStatus(`Unknown lighting profile: ${profileKey}`, true);
+      return;
+    }
+
+    scene.background.setHex(profile.sceneBackground);
+    renderer.toneMappingExposure = profile.exposure;
+
+    hemiLight.color.setHex(profile.hemi.skyColor);
+    hemiLight.groundColor.setHex(profile.hemi.groundColor);
+    hemiLight.intensity = profile.hemi.intensity;
+
+    keyLight.color.setHex(profile.key.color);
+    keyLight.intensity = profile.key.intensity;
+    keyLight.position.set(...profile.key.position);
+
+    fillLight.color.setHex(profile.fill.color);
+    fillLight.intensity = profile.fill.intensity;
+    fillLight.position.set(...profile.fill.position);
+
+    rimLight.color.setHex(profile.rim.color);
+    rimLight.intensity = profile.rim.intensity;
+    rimLight.position.set(...profile.rim.position);
+
+    setActiveLightingPreset(profileKey);
+
+    if (!quiet) {
+      setStatus(`Lighting profile set to ${profile.label}.`);
+    }
   }
 
   function setActivePreset(colorValue) {
@@ -802,6 +1071,10 @@ function initViewer() {
   }
 
   function disposeCurrentModel() {
+    clearSelectedFace();
+    setFaceSelectionEnabled(false);
+    currentModelFileSizeBytes = null;
+
     if (!currentModelObject) {
       return;
     }
@@ -873,6 +1146,7 @@ function initViewer() {
   function finalizeLoadedModel(object3d, modelName, { sourceButton = null, fileSizeBytes = null } = {}) {
     disposeCurrentModel();
     currentModelObject = object3d;
+    currentModelFileSizeBytes = fileSizeBytes;
     scene.add(currentModelObject);
 
     const metrics = getModelMetrics(currentModelObject);
@@ -880,7 +1154,7 @@ function initViewer() {
     applyModelColor(`#${currentModelColor.getHexString()}`);
     setWireframeMode(isWireframeEnabled);
     updateModelInfoPanel({
-      fileSizeBytes,
+      fileSizeBytes: currentModelFileSizeBytes,
       boundingBoxSize: metrics.boundingBoxSize,
       triangleCount: metrics.triangleCount,
     });
@@ -987,6 +1261,19 @@ function initViewer() {
 
   window.addEventListener("resize", handleResize);
 
+  renderer.domElement.addEventListener("click", (event) => {
+    if (!isFaceSelectionEnabled) {
+      return;
+    }
+
+    if (event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    pickFaceFromClientPosition(event.clientX, event.clientY);
+  });
+
   modelButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const modelSizeBytes = Number.parseInt(button.dataset.modelSizeBytes || "", 10);
@@ -1062,6 +1349,11 @@ function initViewer() {
   colorPresetButtons.forEach((button) => {
     bindPresetButton(button);
   });
+  lightingPresetButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      applyLightingProfile(button.dataset.lightProfile);
+    });
+  });
   loadFavoritePresetsFromStorage();
 
   if (modelColorResetButton) {
@@ -1081,6 +1373,30 @@ function initViewer() {
     modelColorRemoveFavoriteButton.addEventListener("click", () => {
       const sourceColor = modelColorInput ? modelColorInput.value : `#${currentModelColor.getHexString()}`;
       removeFavoritePreset(sourceColor);
+    });
+  }
+
+  if (faceSelectionToggleButton) {
+    faceSelectionToggleButton.addEventListener("click", () => {
+      if (!currentModelObject) {
+        setStatus("Load a model before selecting a face.", true);
+        return;
+      }
+
+      const nextState = !isFaceSelectionEnabled;
+      setFaceSelectionEnabled(nextState);
+
+      if (nextState) {
+        setStatus("Face selection enabled. Click a model surface.");
+      } else {
+        setStatus("Face selection disabled.");
+      }
+    });
+  }
+
+  if (placeOnSelectedFaceButton) {
+    placeOnSelectedFaceButton.addEventListener("click", () => {
+      placeModelOnSelectedFace();
     });
   }
 
@@ -1132,7 +1448,10 @@ function initViewer() {
   setAxesVisibility(true);
   setWireframeMode(false);
   setModelInfoVisibility(true);
+  setFaceSelectionEnabled(false);
+  clearSelectedFace();
   updateModelInfoPanel();
+  applyLightingProfile(DEFAULT_LIGHT_PROFILE, { quiet: true });
   applyModelColor(DEFAULT_MODEL_COLOR);
 
   if (modelButtons.length > 0) {

@@ -136,6 +136,39 @@
     </div>
   </section>
 
+  <section class="viewer-controls" aria-label="Lighting profile controls">
+    <h3>Lighting profile</h3>
+    <div class="lighting-presets" role="group" aria-label="Lighting presets">
+      <button
+        type="button"
+        class="lighting-preset is-active"
+        data-light-profile="studio"
+        aria-pressed="true"
+        title="Balanced studio lighting"
+      >
+        Studio
+      </button>
+      <button
+        type="button"
+        class="lighting-preset"
+        data-light-profile="technical"
+        aria-pressed="false"
+        title="Neutral technical lighting"
+      >
+        Technical
+      </button>
+      <button
+        type="button"
+        class="lighting-preset"
+        data-light-profile="high-contrast"
+        aria-pressed="false"
+        title="Strong directional contrast lighting"
+      >
+        High Contrast
+      </button>
+    </div>
+  </section>
+
   <div id="viewer-container" class="viewer-container">
     <aside id="viewer-model-info" class="viewer-model-info" aria-label="Model information">
       <h4>Model info</h4>
@@ -167,6 +200,36 @@
           <path d="M3 11.5 12 4l9 7.5"></path>
           <path d="M6 10.5V20h12v-9.5"></path>
           <path d="M10 20v-5h4v5"></path>
+        </svg>
+      </button>
+      <button
+        type="button"
+        id="viewer-toggle-face-selection"
+        class="viewer-icon-button"
+        aria-label="Enable face selection"
+        title="Enable face selection"
+        aria-pressed="false"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="6"></circle>
+          <path d="M12 3v3"></path>
+          <path d="M12 18v3"></path>
+          <path d="M3 12h3"></path>
+          <path d="M18 12h3"></path>
+        </svg>
+      </button>
+      <button
+        type="button"
+        id="viewer-place-on-selected-face"
+        class="viewer-icon-button"
+        aria-label="Place model on selected face"
+        title="Place model on selected face"
+        disabled
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M12 4v10"></path>
+          <path d="m8 11 4 4 4-4"></path>
+          <path d="M4 20h16"></path>
         </svg>
       </button>
       <button

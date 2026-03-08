@@ -32,8 +32,9 @@ Sortierung: von oben nach unten nach Prioritaet und Umsetzbarkeit
 - [ ] Messwerkzeug fuer Distanz zwischen zwei Punkten
 - [ ] Marker/Annotationen direkt im Modell speichern
 - [ ] Kamera-Presets (Front/Top/Left/Isometric) inkl. benutzerdefinierter Speicherplaetze
-- [ ] Lichtprofile (Studio, Technical, High Contrast) als Presets
+- [X] Lichtprofile (Studio, Technical, High Contrast) als Presets
 - [ ] Export/Import der Viewer-Sitzung (JSON mit Kamera + Sichtbarkeit + Farben)
+- [X] Objekt auf ausgewählter Fläche auf Grundebene ablegen
 
 ## 4) Strategische Features, hoher Aufwand
 
