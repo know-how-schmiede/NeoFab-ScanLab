@@ -11,6 +11,7 @@ const colorPresetButtons = Array.from(document.querySelectorAll(".color-preset")
 const resetViewButton = document.getElementById("viewer-reset-view");
 const rotationToggleButton = document.getElementById("viewer-toggle-rotation");
 const gridToggleButton = document.getElementById("viewer-toggle-grid");
+const axesToggleButton = document.getElementById("viewer-toggle-axes");
 const DEFAULT_MODEL_COLOR = "#8aa2c8";
 const AUTO_ROTATE_SPEED = 1.6;
 
@@ -76,12 +77,16 @@ function initViewer() {
   const grid = new THREE.GridHelper(220, 22, 0x8ea4c5, 0xc6d4ea);
   scene.add(grid);
 
+  const axes = new THREE.AxesHelper(90);
+  scene.add(axes);
+
   const loader = new STLLoader();
   let currentMesh = null;
   let currentModelColor = new THREE.Color(DEFAULT_MODEL_COLOR);
   let defaultViewState = null;
   let isAutoRotationEnabled = false;
   let isGridVisible = true;
+  let isAxesVisible = true;
 
   function setResetViewEnabled(isEnabled) {
     if (!resetViewButton) {
@@ -158,6 +163,24 @@ function initViewer() {
       nextState ? "Gitter ausblenden" : "Gitter einblenden"
     );
     gridToggleButton.title = nextState ? "Gitter aus" : "Gitter ein";
+  }
+
+  function setAxesVisibility(visible) {
+    const nextState = Boolean(visible);
+    isAxesVisible = nextState;
+    axes.visible = nextState;
+
+    if (!axesToggleButton) {
+      return;
+    }
+
+    axesToggleButton.classList.toggle("is-toggled", nextState);
+    axesToggleButton.setAttribute("aria-pressed", String(nextState));
+    axesToggleButton.setAttribute(
+      "aria-label",
+      nextState ? "Achsen-Helfer ausblenden" : "Achsen-Helfer einblenden"
+    );
+    axesToggleButton.title = nextState ? "Achsen aus" : "Achsen ein";
   }
 
   function setActivePreset(colorValue) {
@@ -318,9 +341,16 @@ function initViewer() {
     });
   }
 
+  if (axesToggleButton) {
+    axesToggleButton.addEventListener("click", () => {
+      setAxesVisibility(!isAxesVisible);
+    });
+  }
+
   setResetViewEnabled(false);
   setAutoRotation(false);
   setGridVisibility(true);
+  setAxesVisibility(true);
   applyModelColor(DEFAULT_MODEL_COLOR);
 
   if (modelButtons.length > 0) {

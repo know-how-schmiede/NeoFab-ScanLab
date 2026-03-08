@@ -15,6 +15,11 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.3.4 (2026-03-08)
+- Viewer: Achsen-Helfer (`AxesHelper`) in die Szene integriert.
+- Toolbar um ein Icon zum Ein-/Ausblenden der Achsen erweitert.
+- Toggle-Status fuer den Achsen-Schalter mit `aria-pressed` umgesetzt.
+
 ## 0.3.3 (2026-03-07)
 - Viewer: Icon zum Ein-/Ausblenden des Gitters in der Toolbar hinzugefuegt.
 - Gitter-Icon als Toggle-Button mit `aria-pressed` umgesetzt.
