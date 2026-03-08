@@ -17,6 +17,7 @@ const rotationToggleButton = document.getElementById("viewer-toggle-rotation");
 const gridToggleButton = document.getElementById("viewer-toggle-grid");
 const axesToggleButton = document.getElementById("viewer-toggle-axes");
 const wireframeToggleButton = document.getElementById("viewer-toggle-wireframe");
+const screenshotExportButton = document.getElementById("viewer-export-screenshot");
 const modelInfoToggleButton = document.getElementById("viewer-toggle-model-info");
 const localModelButton = document.getElementById("local-model-button");
 const localModelInput = document.getElementById("local-model-input");
@@ -113,7 +114,7 @@ function initViewer() {
   );
   camera.position.set(150, 100, 150);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(container.clientWidth, container.clientHeight);
   container.appendChild(renderer.domElement);
@@ -277,7 +278,7 @@ function initViewer() {
     wireframeToggleButton.setAttribute("aria-pressed", String(nextState));
     wireframeToggleButton.setAttribute(
       "aria-label",
-      nextState ? "Wireframe ausschalten" : "Wireframe einschalten"
+      nextState ? "Disable wireframe" : "Enable wireframe"
     );
     wireframeToggleButton.title = nextState ? "Show solid" : "Enable wireframe";
   }
@@ -301,6 +302,182 @@ function initViewer() {
       nextState ? "Hide model info" : "Show model info"
     );
     modelInfoToggleButton.title = nextState ? "Hide model info" : "Show model info";
+  }
+
+  function buildScreenshotFilename() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    const seconds = String(now.getSeconds()).padStart(2, "0");
+
+    return `scan-lab-viewer-${year}${month}${day}-${hours}${minutes}${seconds}.png`;
+  }
+
+  function parsePixelValue(rawValue, fallback = 0) {
+    const numericValue = Number.parseFloat(rawValue);
+    return Number.isFinite(numericValue) ? numericValue : fallback;
+  }
+
+  function drawRoundedRectPath(context, x, y, width, height, radius) {
+    const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
+    context.beginPath();
+    context.moveTo(x + safeRadius, y);
+    context.lineTo(x + width - safeRadius, y);
+    context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+    context.lineTo(x + width, y + height - safeRadius);
+    context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+    context.lineTo(x + safeRadius, y + height);
+    context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+    context.lineTo(x, y + safeRadius);
+    context.quadraticCurveTo(x, y, x + safeRadius, y);
+    context.closePath();
+  }
+
+  function drawModelInfoOverlayOnScreenshot(context, canvasWidth, canvasHeight) {
+    if (!modelInfoPanel || !container) {
+      return;
+    }
+
+    if (!isModelInfoVisible || modelInfoPanel.classList.contains("is-hidden")) {
+      return;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const panelRect = modelInfoPanel.getBoundingClientRect();
+    if (containerRect.width <= 0 || containerRect.height <= 0 || panelRect.width <= 0 || panelRect.height <= 0) {
+      return;
+    }
+
+    const scaleX = canvasWidth / containerRect.width;
+    const scaleY = canvasHeight / containerRect.height;
+    const scale = Math.min(scaleX, scaleY);
+
+    const rawX = (panelRect.left - containerRect.left) * scaleX;
+    const rawY = (panelRect.top - containerRect.top) * scaleY;
+    const rawWidth = panelRect.width * scaleX;
+    const rawHeight = panelRect.height * scaleY;
+    const panelX = Math.max(0, Math.min(rawX, canvasWidth - 2));
+    const panelY = Math.max(0, Math.min(rawY, canvasHeight - 2));
+    const panelWidth = Math.max(2, Math.min(rawWidth, canvasWidth - panelX));
+    const panelHeight = Math.max(2, Math.min(rawHeight, canvasHeight - panelY));
+
+    const panelStyle = window.getComputedStyle(modelInfoPanel);
+    const headingElement = modelInfoPanel.querySelector("h4");
+    const headingStyle = headingElement ? window.getComputedStyle(headingElement) : null;
+    const firstRow = modelInfoPanel.querySelector(".viewer-model-info-row");
+    const firstTerm = firstRow ? firstRow.querySelector("dt") : null;
+    const firstDetail = firstRow ? firstRow.querySelector("dd") : null;
+    const termStyle = firstTerm ? window.getComputedStyle(firstTerm) : null;
+    const detailStyle = firstDetail ? window.getComputedStyle(firstDetail) : null;
+    const rowElements = Array.from(modelInfoPanel.querySelectorAll(".viewer-model-info-row"));
+
+    const rows = rowElements
+      .map((row) => {
+        const term = row.querySelector("dt");
+        const detail = row.querySelector("dd");
+        return {
+          termText: term ? term.textContent.trim() : "",
+          detailText: detail ? detail.textContent.trim() : "",
+        };
+      })
+      .filter((entry) => entry.termText || entry.detailText);
+
+    const paddingLeft = parsePixelValue(panelStyle.paddingLeft, 10) * scaleX;
+    const paddingRight = parsePixelValue(panelStyle.paddingRight, 10) * scaleX;
+    const paddingTop = parsePixelValue(panelStyle.paddingTop, 8) * scaleY;
+    const borderRadius = parsePixelValue(panelStyle.borderTopLeftRadius, 10) * scale;
+    const borderWidth = Math.max(1, parsePixelValue(panelStyle.borderTopWidth, 1) * scale);
+
+    const fontFamily = panelStyle.fontFamily || "Segoe UI, Tahoma, Geneva, Verdana, sans-serif";
+    const titleText = headingElement ? headingElement.textContent.trim() : "Model info";
+    const titleFontSize = (headingStyle ? parsePixelValue(headingStyle.fontSize, 14) : 14) * scaleY;
+    const rowFontSize = (termStyle ? parsePixelValue(termStyle.fontSize, 12) : 12) * scaleY;
+    const titleToRowsGap = 8 * scaleY;
+    const rowStep = rowFontSize * 1.35;
+
+    context.save();
+    drawRoundedRectPath(context, panelX, panelY, panelWidth, panelHeight, borderRadius);
+    context.fillStyle = panelStyle.backgroundColor || "rgba(255, 255, 255, 0.94)";
+    context.fill();
+    context.lineWidth = borderWidth;
+    context.strokeStyle = panelStyle.borderColor || "#95aacc";
+    context.stroke();
+
+    const leftTextX = panelX + paddingLeft;
+    const rightTextX = panelX + panelWidth - paddingRight;
+    let cursorY = panelY + paddingTop + titleFontSize;
+
+    context.textBaseline = "alphabetic";
+    context.textAlign = "left";
+    context.font = `${headingStyle ? headingStyle.fontWeight : "600"} ${titleFontSize}px ${fontFamily}`;
+    context.fillStyle = headingStyle ? headingStyle.color : "#213752";
+    context.fillText(titleText, leftTextX, cursorY);
+
+    cursorY += titleToRowsGap;
+    rows.forEach((entry, index) => {
+      cursorY += rowFontSize;
+      if (index > 0) {
+        cursorY += rowStep - rowFontSize;
+      }
+
+      context.textAlign = "left";
+      context.font = `${termStyle ? termStyle.fontWeight : "600"} ${rowFontSize}px ${fontFamily}`;
+      context.fillStyle = termStyle ? termStyle.color : "#314a66";
+      context.fillText(entry.termText, leftTextX, cursorY);
+
+      context.textAlign = "right";
+      context.font = `${detailStyle ? detailStyle.fontWeight : "400"} ${rowFontSize}px ${fontFamily}`;
+      context.fillStyle = detailStyle ? detailStyle.color : "#23384f";
+      context.fillText(entry.detailText, rightTextX, cursorY);
+    });
+
+    context.restore();
+  }
+
+  function exportScreenshotAsPng() {
+    if (!renderer || !renderer.domElement) {
+      setStatus("Screenshot export is not available.", true);
+      return;
+    }
+
+    try {
+      renderer.render(scene, camera);
+      const sourceCanvas = renderer.domElement;
+      if (sourceCanvas.width <= 0 || sourceCanvas.height <= 0) {
+        throw new Error("Renderer canvas has invalid size for screenshot export.");
+      }
+
+      const exportCanvas = document.createElement("canvas");
+      exportCanvas.width = sourceCanvas.width;
+      exportCanvas.height = sourceCanvas.height;
+      const exportContext = exportCanvas.getContext("2d");
+      if (!exportContext) {
+        throw new Error("Unable to create 2D context for screenshot export.");
+      }
+
+      exportContext.drawImage(sourceCanvas, 0, 0, exportCanvas.width, exportCanvas.height);
+      drawModelInfoOverlayOnScreenshot(exportContext, exportCanvas.width, exportCanvas.height);
+
+      const imageDataUrl = exportCanvas.toDataURL("image/png");
+      if (!imageDataUrl.startsWith("data:image/png")) {
+        throw new Error("Screenshot export did not return a PNG image.");
+      }
+
+      const downloadLink = document.createElement("a");
+      downloadLink.href = imageDataUrl;
+      downloadLink.download = buildScreenshotFilename();
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+
+      setStatus("Screenshot exported as PNG.");
+    } catch (error) {
+      console.error("Screenshot export failed.", error);
+      setStatus("Screenshot export failed.", true);
+    }
   }
 
   function countTrianglesInObject(object3d) {
@@ -934,6 +1111,12 @@ function initViewer() {
   if (wireframeToggleButton) {
     wireframeToggleButton.addEventListener("click", () => {
       setWireframeMode(!isWireframeEnabled);
+    });
+  }
+
+  if (screenshotExportButton) {
+    screenshotExportButton.addEventListener("click", () => {
+      exportScreenshotAsPng();
     });
   }
 

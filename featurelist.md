@@ -10,7 +10,7 @@ Sortierung: von oben nach unten nach Prioritaet und Umsetzbarkeit
 - [X] Anzeige von Modellinfos (Dateigroesse, Bounding Box, Dreiecksanzahl)
 - [X] Achsen-Helfer (AxisHelper) als ein/aus Schalter
 - [X] Wireframe/Solid Umschalter fuer schnelle Geometriepruefung
-- [ ] Screenshot-Export als PNG aus aktueller Kameraposition
+- [X] Screenshot-Export als PNG aus aktueller Kameraposition
 - [ ] Viewer-Shortcuts (Reset, Rotation, Grid) ueber Tastatur
 - [ ] Persistenz der letzten Viewer-Einstellungen (localStorage)
 - [X] Color-Auswahl als Favorit speichern

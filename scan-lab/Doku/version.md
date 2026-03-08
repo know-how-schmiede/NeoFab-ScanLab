@@ -15,6 +15,11 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.3.12 (2026-03-08)
+- Viewer: Screenshot-Export als PNG aus der aktuellen Kameraposition integriert.
+- Neuer Toolbar-Button "Export screenshot as PNG" hinzugefuegt.
+- Projektversion auf `0.3.12` erhoeht.
+
 ## 0.3.11 (2026-03-08)
 - Viewer: Fehlende Tooltips (`title`) fuer Viewer-Buttons ergaenzt (Model-Buttons, Upload, Farbaktionen).
 - Tooltip fuer die Drag-and-Drop-Ladeflaeche hinzugefuegt.
