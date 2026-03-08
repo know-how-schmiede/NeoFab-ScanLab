@@ -9,12 +9,12 @@ Sortierung: von oben nach unten nach Prioritaet und Umsetzbarkeit
 - [ ] Ladeindikator mit Prozentanzeige beim Modellimport
 - [ ] Anzeige von Modellinfos (Dateigroesse, Bounding Box, Dreiecksanzahl)
 - [X] Achsen-Helfer (AxisHelper) als ein/aus Schalter
-- [ ] Wireframe/Solid Umschalter fuer schnelle Geometriepruefung
+- [X] Wireframe/Solid Umschalter fuer schnelle Geometriepruefung
 - [ ] Screenshot-Export als PNG aus aktueller Kameraposition
 - [ ] Viewer-Shortcuts (Reset, Rotation, Grid) ueber Tastatur
 - [ ] Persistenz der letzten Viewer-Einstellungen (localStorage)
 - [ ] Color-Auswahl als Favorit speichern
-- [ ] "Home"-Icon für Standart-Ansicht zurücksetzen
+- [X] "Home"-Icon für Standart-Ansicht zurücksetzen
 
 ## 2) Hohe Prioritaet, mittlere Umsetzbarkeit
 

@@ -13,6 +13,7 @@ const resetViewButton = document.getElementById("viewer-reset-view");
 const rotationToggleButton = document.getElementById("viewer-toggle-rotation");
 const gridToggleButton = document.getElementById("viewer-toggle-grid");
 const axesToggleButton = document.getElementById("viewer-toggle-axes");
+const wireframeToggleButton = document.getElementById("viewer-toggle-wireframe");
 const localModelButton = document.getElementById("local-model-button");
 const localModelInput = document.getElementById("local-model-input");
 const viewerDropzone = document.getElementById("viewer-dropzone");
@@ -104,6 +105,7 @@ function initViewer() {
   let isAutoRotationEnabled = false;
   let isGridVisible = true;
   let isAxesVisible = true;
+  let isWireframeEnabled = false;
 
   function setResetViewEnabled(isEnabled) {
     if (!resetViewButton) {
@@ -198,6 +200,41 @@ function initViewer() {
       nextState ? "Achsen-Helfer ausblenden" : "Achsen-Helfer einblenden"
     );
     axesToggleButton.title = nextState ? "Achsen aus" : "Achsen ein";
+  }
+
+  function setWireframeMode(enabled) {
+    const nextState = Boolean(enabled);
+    isWireframeEnabled = nextState;
+
+    if (currentModelObject) {
+      currentModelObject.traverse((node) => {
+        if (!node.isMesh) {
+          return;
+        }
+
+        const materials = Array.isArray(node.material) ? node.material : [node.material];
+        materials.forEach((material) => {
+          if (!material || !("wireframe" in material)) {
+            return;
+          }
+
+          material.wireframe = nextState;
+          material.needsUpdate = true;
+        });
+      });
+    }
+
+    if (!wireframeToggleButton) {
+      return;
+    }
+
+    wireframeToggleButton.classList.toggle("is-toggled", nextState);
+    wireframeToggleButton.setAttribute("aria-pressed", String(nextState));
+    wireframeToggleButton.setAttribute(
+      "aria-label",
+      nextState ? "Wireframe ausschalten" : "Wireframe einschalten"
+    );
+    wireframeToggleButton.title = nextState ? "Solid" : "Wireframe";
   }
 
   function setDropzoneDragActive(isActive) {
@@ -342,6 +379,7 @@ function initViewer() {
 
     frameObject(currentModelObject);
     applyModelColor(`#${currentModelColor.getHexString()}`);
+    setWireframeMode(isWireframeEnabled);
     setActiveButton(sourceButton);
     setStatus(`Loaded ${modelName}.`);
   }
@@ -547,10 +585,17 @@ function initViewer() {
     });
   }
 
+  if (wireframeToggleButton) {
+    wireframeToggleButton.addEventListener("click", () => {
+      setWireframeMode(!isWireframeEnabled);
+    });
+  }
+
   setResetViewEnabled(false);
   setAutoRotation(false);
   setGridVisibility(true);
   setAxesVisibility(true);
+  setWireframeMode(false);
   applyModelColor(DEFAULT_MODEL_COLOR);
 
   if (modelButtons.length > 0) {

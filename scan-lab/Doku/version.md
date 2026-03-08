@@ -15,6 +15,11 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.3.7 (2026-03-08)
+- Viewer: Wireframe/Solid Umschalter als Toolbar-Toggle hinzugefuegt.
+- Wireframe-Modus wirkt auf STL- und GLB-Meshes und bleibt beim Modellwechsel aktiv.
+- Projektversion auf `0.3.7` erhoeht.
+
 ## 0.3.6 (2026-03-08)
 - Viewer: Icon fuer "Ansicht zuruecksetzen" auf ein Home-Symbol umgestellt.
 - Projektversion auf `0.3.6` erhoeht.
