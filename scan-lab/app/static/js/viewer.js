@@ -9,6 +9,7 @@ const modelButtons = Array.from(document.querySelectorAll(".model-button"));
 const modelColorInput = document.getElementById("model-color-input");
 const modelColorResetButton = document.getElementById("model-color-reset");
 const modelColorAddFavoriteButton = document.getElementById("model-color-add-favorite");
+const modelColorRemoveFavoriteButton = document.getElementById("model-color-remove-favorite");
 const colorPresetsContainer = document.querySelector(".color-presets");
 let colorPresetButtons = Array.from(document.querySelectorAll(".color-preset"));
 const resetViewButton = document.getElementById("viewer-reset-view");
@@ -23,6 +24,7 @@ const viewerDropzone = document.getElementById("viewer-dropzone");
 const DEFAULT_MODEL_COLOR = "#8aa2c8";
 const AUTO_ROTATE_SPEED = 1.6;
 const SUPPORTED_LOCAL_EXTENSIONS = new Set(["stl", "glb"]);
+const COLOR_FAVORITES_STORAGE_KEY = "scanlab.viewer.favorite_colors.v1";
 
 function setStatus(message, isError = false) {
   if (!statusElement) {
@@ -108,6 +110,10 @@ function initViewer() {
   let isGridVisible = true;
   let isAxesVisible = true;
   let isWireframeEnabled = false;
+  const builtInPresetColors = new Set(
+    colorPresetButtons.map((button) => normalizeHexColor(button.dataset.color)).filter(Boolean)
+  );
+  let favoritePresetColors = [];
 
   function setResetViewEnabled(isEnabled) {
     if (!resetViewButton) {
@@ -255,6 +261,15 @@ function initViewer() {
     });
   }
 
+  function refreshPresetButtons() {
+    if (!colorPresetsContainer) {
+      colorPresetButtons = [];
+      return;
+    }
+
+    colorPresetButtons = Array.from(colorPresetsContainer.querySelectorAll(".color-preset"));
+  }
+
   function bindPresetButton(button) {
     if (!button) {
       return;
@@ -263,6 +278,50 @@ function initViewer() {
     button.addEventListener("click", () => {
       applyModelColor(button.dataset.color);
     });
+  }
+
+  function readFavoritePresetsFromStorage() {
+    if (typeof localStorage === "undefined") {
+      return [];
+    }
+
+    try {
+      const raw = localStorage.getItem(COLOR_FAVORITES_STORAGE_KEY);
+      if (!raw) {
+        return [];
+      }
+
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+
+      const unique = new Set();
+      parsed.forEach((entry) => {
+        const normalizedColor = normalizeHexColor(entry);
+        if (!normalizedColor || builtInPresetColors.has(normalizedColor)) {
+          return;
+        }
+        unique.add(normalizedColor);
+      });
+
+      return Array.from(unique);
+    } catch (error) {
+      console.warn("Unable to read color favorites from localStorage.", error);
+      return [];
+    }
+  }
+
+  function persistFavoritePresets() {
+    if (typeof localStorage === "undefined") {
+      return;
+    }
+
+    try {
+      localStorage.setItem(COLOR_FAVORITES_STORAGE_KEY, JSON.stringify(favoritePresetColors));
+    } catch (error) {
+      console.warn("Unable to persist color favorites to localStorage.", error);
+    }
   }
 
   function hasPresetColor(colorValue) {
@@ -276,7 +335,76 @@ function initViewer() {
     });
   }
 
-  function addFavoritePreset(colorValue) {
+  function isFavoritePresetColor(colorValue) {
+    const normalizedColor = normalizeHexColor(colorValue);
+    if (!normalizedColor) {
+      return false;
+    }
+
+    return favoritePresetColors.includes(normalizedColor);
+  }
+
+  function createFavoritePresetButton(colorValue) {
+    const normalizedColor = normalizeHexColor(colorValue);
+    if (!normalizedColor) {
+      return null;
+    }
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "color-preset";
+    button.dataset.color = normalizedColor;
+    button.dataset.favorite = "true";
+    button.style.setProperty("--preset-color", normalizedColor);
+    button.setAttribute(
+      "aria-label",
+      `Favorite ${normalizedColor} (right-click to remove)`
+    );
+    button.title = `Favorite ${normalizedColor} (right-click to remove)`;
+
+    return button;
+  }
+
+  function removeFavoritePreset(colorValue, { quiet = false } = {}) {
+    const normalizedColor = normalizeHexColor(colorValue);
+    if (!normalizedColor || !colorPresetsContainer) {
+      return false;
+    }
+
+    if (!isFavoritePresetColor(normalizedColor)) {
+      if (!quiet) {
+        if (builtInPresetColors.has(normalizedColor)) {
+          setStatus(`Color ${normalizedColor} is a built-in preset and cannot be removed.`, true);
+        } else {
+          setStatus(`Color ${normalizedColor} is not in favorite presets.`, true);
+        }
+      }
+      return false;
+    }
+
+    const buttonToRemove = colorPresetButtons.find((button) => {
+      return (
+        button.dataset.favorite === "true" &&
+        normalizeHexColor(button.dataset.color) === normalizedColor
+      );
+    });
+    if (buttonToRemove) {
+      buttonToRemove.remove();
+    }
+
+    favoritePresetColors = favoritePresetColors.filter((color) => color !== normalizedColor);
+    persistFavoritePresets();
+    refreshPresetButtons();
+    setActivePreset(`#${currentModelColor.getHexString()}`);
+
+    if (!quiet) {
+      setStatus(`Removed ${normalizedColor} from color presets.`);
+    }
+
+    return true;
+  }
+
+  function addFavoritePreset(colorValue, { quiet = false, persist = true } = {}) {
     const normalizedColor = normalizeHexColor(colorValue);
     if (!normalizedColor || !colorPresetsContainer) {
       return false;
@@ -284,24 +412,48 @@ function initViewer() {
 
     if (hasPresetColor(normalizedColor)) {
       setActivePreset(normalizedColor);
-      setStatus(`Color ${normalizedColor} already exists in presets.`);
+      if (!quiet) {
+        setStatus(`Color ${normalizedColor} already exists in presets.`);
+      }
       return false;
     }
 
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "color-preset";
-    button.dataset.color = normalizedColor;
-    button.style.setProperty("--preset-color", normalizedColor);
-    button.setAttribute("aria-label", `Favorite ${normalizedColor}`);
-    button.title = `Favorite ${normalizedColor}`;
+    const button = createFavoritePresetButton(normalizedColor);
+    if (!button) {
+      return false;
+    }
 
     bindPresetButton(button);
+    button.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      removeFavoritePreset(normalizedColor);
+    });
+
     colorPresetsContainer.appendChild(button);
-    colorPresetButtons = Array.from(colorPresetsContainer.querySelectorAll(".color-preset"));
+    favoritePresetColors.push(normalizedColor);
+    if (persist) {
+      persistFavoritePresets();
+    }
+
+    refreshPresetButtons();
     setActivePreset(normalizedColor);
-    setStatus(`Added ${normalizedColor} to color presets.`);
+
+    if (!quiet) {
+      setStatus(`Added ${normalizedColor} to color presets.`);
+    }
+
     return true;
+  }
+
+  function loadFavoritePresetsFromStorage() {
+    const storedFavorites = readFavoritePresetsFromStorage();
+    favoritePresetColors = [];
+
+    storedFavorites.forEach((colorValue) => {
+      addFavoritePreset(colorValue, { quiet: true, persist: false });
+    });
+
+    persistFavoritePresets();
   }
 
   function applyModelColor(colorValue, { syncInput = true } = {}) {
@@ -603,6 +755,7 @@ function initViewer() {
   colorPresetButtons.forEach((button) => {
     bindPresetButton(button);
   });
+  loadFavoritePresetsFromStorage();
 
   if (modelColorResetButton) {
     modelColorResetButton.addEventListener("click", () => {
@@ -614,6 +767,13 @@ function initViewer() {
     modelColorAddFavoriteButton.addEventListener("click", () => {
       const sourceColor = modelColorInput ? modelColorInput.value : `#${currentModelColor.getHexString()}`;
       addFavoritePreset(sourceColor);
+    });
+  }
+
+  if (modelColorRemoveFavoriteButton) {
+    modelColorRemoveFavoriteButton.addEventListener("click", () => {
+      const sourceColor = modelColorInput ? modelColorInput.value : `#${currentModelColor.getHexString()}`;
+      removeFavoritePreset(sourceColor);
     });
   }
 

@@ -15,6 +15,12 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.3.9 (2026-03-08)
+- Viewer: Color-Favoriten werden im Browser via `localStorage` persistent gespeichert.
+- Viewer: Favoriten koennen ueber den neuen Button "Remove favorite" entfernt werden.
+- Viewer: Favoriten koennen alternativ per Rechtsklick auf den Preset-Farbpunkt geloescht werden.
+- Projektversion auf `0.3.9` erhoeht.
+
 ## 0.3.8 (2026-03-08)
 - Viewer: Button "Add favorite" bei "Custom color" hinzugefuegt.
 - Aktuelle Farbe aus dem Color-Input kann als neues Preset in die Farbpalette abgelegt werden.
