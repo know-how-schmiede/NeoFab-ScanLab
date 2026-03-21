@@ -205,3 +205,7 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Keep the vendored three.js ES module in version control.
+!scan-lab/app/static/vendor/three/build/
+!scan-lab/app/static/vendor/three/build/three.module.js

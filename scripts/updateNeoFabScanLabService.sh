@@ -33,7 +33,7 @@ prompt FLASK_CONFIG "Flask config" "production"
 VENV_DIR="$APP_HOME/.venv"
 WORK_DIR="$APP_HOME/scan-lab"
 SERVICE_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
-SMOKE_TEST_PY="from wsgi import app; client = app.test_client(); checks = {'/': client.get('/').status_code, '/viewer': client.get('/viewer').status_code}; print(' '.join([f'{path}={status}' for path, status in checks.items()])); import sys; sys.exit(0 if all(status == 200 for status in checks.values()) else 1)"
+SMOKE_TEST_PY="from wsgi import app; client = app.test_client(); checks = {'/': client.get('/').status_code, '/viewer': client.get('/viewer').status_code, '/static/vendor/three/build/three.module.js': client.get('/static/vendor/three/build/three.module.js').status_code}; print(' '.join([f'{path}={status}' for path, status in checks.items()])); import sys; sys.exit(0 if all(status == 200 for status in checks.values()) else 1)"
 
 if ! command -v systemctl >/dev/null 2>&1; then
   echo "systemctl is not available in this container. Check the Debian 13 LXC setup." >&2
