@@ -15,6 +15,12 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.5.0 (2026-03-21)
+- Debian-13-Setup-Skripte fuer Installation, systemd-Service und Update-Prozess hinzugefuegt.
+- Eindeutigen WSGI-Einstieg fuer Flask/Gunicorn mit `scan-lab/wsgi.py` ergaenzt.
+- Produktionskonfiguration fuer den Servicebetrieb hinzugefuegt.
+- Projektversion auf `0.5.0` erhoeht.
+
 ## 0.4.2 (2026-03-08)
 - Viewer: Toggle-Button zum Ein-/Ausblenden der Bounding Box um das geladene Modell hinzugefuegt.
 - Projektversion auf `0.4.2` erhoeht.

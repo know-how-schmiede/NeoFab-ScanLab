@@ -1,10 +1,6 @@
 """Entry point for running scan-lab locally."""
 
-import os
-
-from app import create_app
-
-app = create_app(os.getenv("FLASK_CONFIG", "development"))
+from wsgi import app
 
 
 if __name__ == "__main__":

@@ -27,7 +27,15 @@ class DevelopmentConfig(BaseConfig):
     DEBUG = True
 
 
+class ProductionConfig(BaseConfig):
+    """Production configuration used by the systemd service."""
+
+    DEBUG = False
+    TEMPLATES_AUTO_RELOAD = False
+
+
 config_by_name = {
     "development": DevelopmentConfig,
+    "production": ProductionConfig,
     "default": DevelopmentConfig,
 }

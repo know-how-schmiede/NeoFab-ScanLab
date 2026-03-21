@@ -73,3 +73,18 @@ PLY	Scan data
 OBJ	Import possible
 
 For best performance, models should be converted to GLB and optionally simplified before viewing.
+
+## Debian 13 / Proxmox LXC Deployment
+
+Deployment helpers for a Debian-13 LXC container on Proxmox are included in [`scripts/`](./scripts):
+
+- `scripts/setupNeoFabScanLab.sh`
+- `scripts/setupNeoFabScanLabService.sh`
+- `scripts/updateNeoFabScanLabService.sh`
+
+Recommended order inside the container:
+
+1. Run `setupNeoFabScanLab.sh` as `root`
+2. Test the app in the browser
+3. Run `setupNeoFabScanLabService.sh` as `root`
+4. Use `updateNeoFabScanLabService.sh` for future updates from GitHub
