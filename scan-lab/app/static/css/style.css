@@ -100,13 +100,30 @@ body {
 }
 
 .viewer-container {
-  margin-top: 1rem;
+  width: 100%;
+  max-width: 100%;
+  margin: 1rem auto 0;
   min-height: 460px;
   border: 1px solid #9cb2d3;
   border-radius: 12px;
   background: radial-gradient(circle at 20% 20%, #f7fbff 0, #ecf3ff 45%, #dde9f8 100%);
   position: relative;
   overflow: hidden;
+}
+
+.viewer-container--compact {
+  max-width: 720px;
+  min-height: 360px;
+}
+
+.viewer-container--standard {
+  max-width: 100%;
+  min-height: 460px;
+}
+
+.viewer-container--large {
+  max-width: 100%;
+  min-height: 620px;
 }
 
 .viewer-container canvas {
@@ -438,13 +455,15 @@ body {
   box-shadow: 0 0 0 3px rgba(11, 109, 255, 0.2);
 }
 
-.lighting-presets {
+.lighting-presets,
+.viewer-size-presets {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
 }
 
-.lighting-preset {
+.lighting-preset,
+.viewer-size-preset {
   cursor: pointer;
   border: 1px solid #a6b8d4;
   border-radius: 999px;
@@ -456,14 +475,17 @@ body {
   letter-spacing: 0.01em;
 }
 
-.lighting-preset:hover {
+.lighting-preset:hover,
+.viewer-size-preset:hover {
   border-color: #0b6dff;
   color: #0b336f;
   background: #f0f6ff;
 }
 
 .lighting-preset.is-active,
-.lighting-preset[aria-pressed="true"] {
+.lighting-preset[aria-pressed="true"],
+.viewer-size-preset.is-active,
+.viewer-size-preset[aria-pressed="true"] {
   border-color: #0b6dff;
   color: #0b336f;
   background: #dce9ff;
@@ -493,7 +515,23 @@ body {
   }
 
   .viewer-container {
+    max-width: 100%;
     min-height: 320px;
+  }
+
+  .viewer-container--compact {
+    max-width: 100%;
+    min-height: 280px;
+  }
+
+  .viewer-container--standard {
+    max-width: 100%;
+    min-height: 320px;
+  }
+
+  .viewer-container--large {
+    max-width: 100%;
+    min-height: 420px;
   }
 
   .viewer-icon-button {

@@ -13,6 +13,7 @@ const modelColorRemoveFavoriteButton = document.getElementById("model-color-remo
 const colorPresetsContainer = document.querySelector(".color-presets");
 let colorPresetButtons = Array.from(document.querySelectorAll(".color-preset"));
 let lightingPresetButtons = Array.from(document.querySelectorAll(".lighting-preset"));
+let viewerSizePresetButtons = Array.from(document.querySelectorAll(".viewer-size-preset"));
 const resetViewButton = document.getElementById("viewer-reset-view");
 const faceSelectionToggleButton = document.getElementById("viewer-toggle-face-selection");
 const placeOnSelectedFaceButton = document.getElementById("viewer-place-on-selected-face");
@@ -35,12 +36,18 @@ const modelInfoTriangles = document.getElementById("model-info-triangles");
 
 const DEFAULT_MODEL_COLOR = "#8aa2c8";
 const DEFAULT_LIGHT_PROFILE = "studio";
+const DEFAULT_VIEWER_SIZE = "standard";
 const AUTO_ROTATE_SPEED = 1.6;
 const BOUNDING_BOX_DIMENSION_LABEL_OFFSET = 18;
 const BOUNDING_BOX_ANCHOR_HYSTERESIS = 0.12;
 const SUPPORTED_LOCAL_EXTENSIONS = new Set(["stl", "glb"]);
 const COLOR_FAVORITES_STORAGE_KEY = "scanlab.viewer.favorite_colors.v1";
 const FACE_GROUND_TARGET_NORMAL = new THREE.Vector3(0, -1, 0);
+const VIEWER_SIZE_PRESETS = {
+  compact: { label: "Compact" },
+  standard: { label: "Standard" },
+  large: { label: "Large" },
+};
 const LIGHT_PROFILES = {
   studio: {
     label: "Studio",
@@ -187,7 +194,7 @@ function initViewer() {
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setSize(container.clientWidth, container.clientHeight);
+  renderer.setSize(container.clientWidth, container.clientHeight, false);
   container.appendChild(renderer.domElement);
   const {
     layer: boundingBoxDimensionsLayer,
@@ -237,6 +244,7 @@ function initViewer() {
   let isModelInfoVisible = true;
   let isBoundingBoxVisible = false;
   let isBoundingBoxDimensionsVisible = false;
+  let currentViewerSizePreset = DEFAULT_VIEWER_SIZE;
   const boundingBoxDimensionAnchorSigns = { x: 0, y: 0, z: 0 };
   const builtInPresetColors = new Set(
     colorPresetButtons.map((button) => normalizeHexColor(button.dataset.color)).filter(Boolean)
@@ -1318,6 +1326,38 @@ function initViewer() {
     viewerDropzone.classList.toggle("is-dragover", Boolean(isActive));
   }
 
+  function setActiveViewerSizePreset(sizeKey) {
+    viewerSizePresetButtons.forEach((button) => {
+      const isActive = button.dataset.viewerSize === sizeKey;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-pressed", String(isActive));
+    });
+  }
+
+  function applyViewerSizePreset(sizeKey, { quiet = false } = {}) {
+    const nextSizeKey = VIEWER_SIZE_PRESETS[sizeKey] ? sizeKey : DEFAULT_VIEWER_SIZE;
+    const preset = VIEWER_SIZE_PRESETS[nextSizeKey];
+    if (!container) {
+      return;
+    }
+
+    const didChange = currentViewerSizePreset !== nextSizeKey;
+    if (didChange) {
+      Object.keys(VIEWER_SIZE_PRESETS).forEach((key) => {
+        container.classList.remove(`viewer-container--${key}`);
+      });
+      container.classList.add(`viewer-container--${nextSizeKey}`);
+      currentViewerSizePreset = nextSizeKey;
+    }
+
+    setActiveViewerSizePreset(nextSizeKey);
+    handleResize();
+
+    if (!quiet && didChange) {
+      setStatus(`Viewer size set to ${preset.label}.`);
+    }
+  }
+
   function setActiveLightingPreset(profileKey) {
     lightingPresetButtons.forEach((button) => {
       const isActive = button.dataset.lightProfile === profileKey;
@@ -1818,7 +1858,7 @@ function initViewer() {
 
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
-    renderer.setSize(width, height);
+    renderer.setSize(width, height, false);
   }
 
   window.addEventListener("resize", handleResize);
@@ -1914,6 +1954,11 @@ function initViewer() {
   lightingPresetButtons.forEach((button) => {
     button.addEventListener("click", () => {
       applyLightingProfile(button.dataset.lightProfile);
+    });
+  });
+  viewerSizePresetButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      applyViewerSizePreset(button.dataset.viewerSize);
     });
   });
   loadFavoritePresetsFromStorage();
@@ -2046,6 +2091,7 @@ function initViewer() {
   setFaceSelectionEnabled(false);
   clearSelectedFace();
   updateModelInfoPanel();
+  applyViewerSizePreset(DEFAULT_VIEWER_SIZE, { quiet: true });
   applyLightingProfile(DEFAULT_LIGHT_PROFILE, { quiet: true });
   applyModelColor(DEFAULT_MODEL_COLOR);
 

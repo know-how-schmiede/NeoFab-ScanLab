@@ -17,6 +17,7 @@ Sortierung: von oben nach unten nach Prioritaet und Umsetzbarkeit
 - [X] "Home"-Icon für Standart-Ansicht zurücksetzen
 - [X] Persistenz der Color-Favoriten incl. Löschen der Color-Favoriten
 - [X] Tooltip Anzeige für Buttons im Viewer
+- [X] Dimension Bounding Box anzeigen
 
 ## 2) Hohe Prioritaet, mittlere Umsetzbarkeit
 

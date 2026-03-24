@@ -15,15 +15,19 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
-## 0.5.2 (2026-03-24)
+## 0.5.3 (2026-03-24)
+- Projektversion auf `0.5.3` erhoeht.
+- Viewer: Groessen-Presets fuer das Viewer-Fenster hinzugefuegt.
+- Viewer: Preset-Umschaltung fuer kompakte, Standard- und grosse Ansicht integriert.
+- Bereiche Model color, Lightning profile, Viewer size verschoben
 
+## 0.5.2 (2026-03-24)
 - Projektversion auf `0.5.2` erhoeht.
 - Optimierung Anzeige Abmessungen Bounding-Box (Flackern reduzieren)
 
 ## 0.5.1 (2026-03-24)
-
 - Projektversion auf `0.5.1` erhoeht.
-- Abmessungen für Bounding-Box im Viewer anzeigen
+- Abmessungen fÃ¼r Bounding-Box im Viewer anzeigen
 - Button BoundingBox Dimension
 
 ## 0.5.0 (2026-03-21)
