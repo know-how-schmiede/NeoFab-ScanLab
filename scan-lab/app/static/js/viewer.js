@@ -18,6 +18,7 @@ const faceSelectionToggleButton = document.getElementById("viewer-toggle-face-se
 const placeOnSelectedFaceButton = document.getElementById("viewer-place-on-selected-face");
 const alignBoundingBoxAxesButton = document.getElementById("viewer-align-bbox-axes");
 const boundingBoxToggleButton = document.getElementById("viewer-toggle-bounding-box");
+const boundingBoxDimensionsToggleButton = document.getElementById("viewer-toggle-bbox-dimensions");
 const rotationToggleButton = document.getElementById("viewer-toggle-rotation");
 const gridToggleButton = document.getElementById("viewer-toggle-grid");
 const axesToggleButton = document.getElementById("viewer-toggle-axes");
@@ -35,6 +36,8 @@ const modelInfoTriangles = document.getElementById("model-info-triangles");
 const DEFAULT_MODEL_COLOR = "#8aa2c8";
 const DEFAULT_LIGHT_PROFILE = "studio";
 const AUTO_ROTATE_SPEED = 1.6;
+const BOUNDING_BOX_DIMENSION_LABEL_OFFSET = 18;
+const BOUNDING_BOX_ANCHOR_HYSTERESIS = 0.12;
 const SUPPORTED_LOCAL_EXTENSIONS = new Set(["stl", "glb"]);
 const COLOR_FAVORITES_STORAGE_KEY = "scanlab.viewer.favorite_colors.v1";
 const FACE_GROUND_TARGET_NORMAL = new THREE.Vector3(0, -1, 0);
@@ -132,6 +135,38 @@ function formatDimension(value) {
   return numericValue.toFixed(2);
 }
 
+function createBoundingBoxDimensionElements(hostElement) {
+  if (!hostElement || typeof document === "undefined") {
+    return { layer: null, labels: {} };
+  }
+
+  const layer = document.createElement("div");
+  layer.className = "viewer-bbox-dimensions";
+  layer.setAttribute("aria-hidden", "true");
+
+  const labels = {};
+  ["x", "y", "z"].forEach((axis) => {
+    const label = document.createElement("div");
+    label.className = "viewer-bbox-dimension-label";
+    label.dataset.axis = axis;
+    label.hidden = true;
+
+    const axisElement = document.createElement("span");
+    axisElement.className = "viewer-bbox-dimension-axis";
+    axisElement.textContent = axis.toUpperCase();
+
+    const valueElement = document.createElement("span");
+    valueElement.className = "viewer-bbox-dimension-value";
+
+    label.append(axisElement, valueElement);
+    layer.appendChild(label);
+    labels[axis] = { element: label, valueElement };
+  });
+
+  hostElement.appendChild(layer);
+  return { layer, labels };
+}
+
 function initViewer() {
   if (!container || !statusElement) {
     return;
@@ -154,6 +189,10 @@ function initViewer() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(container.clientWidth, container.clientHeight);
   container.appendChild(renderer.domElement);
+  const {
+    layer: boundingBoxDimensionsLayer,
+    labels: boundingBoxDimensionLabels,
+  } = createBoundingBoxDimensionElements(container);
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -197,6 +236,8 @@ function initViewer() {
   let isWireframeEnabled = false;
   let isModelInfoVisible = true;
   let isBoundingBoxVisible = false;
+  let isBoundingBoxDimensionsVisible = false;
+  const boundingBoxDimensionAnchorSigns = { x: 0, y: 0, z: 0 };
   const builtInPresetColors = new Set(
     colorPresetButtons.map((button) => normalizeHexColor(button.dataset.color)).filter(Boolean)
   );
@@ -361,6 +402,33 @@ function initViewer() {
     boundingBoxToggleButton.disabled = !isEnabled;
   }
 
+  function setBoundingBoxDimensionsToggleEnabled(isEnabled) {
+    if (!boundingBoxDimensionsToggleButton) {
+      return;
+    }
+
+    boundingBoxDimensionsToggleButton.disabled = !isEnabled;
+  }
+
+  function resetBoundingBoxDimensionAnchors() {
+    boundingBoxDimensionAnchorSigns.x = 0;
+    boundingBoxDimensionAnchorSigns.y = 0;
+    boundingBoxDimensionAnchorSigns.z = 0;
+  }
+
+  function hideBoundingBoxDimensionLabels() {
+    if (!boundingBoxDimensionsLayer) {
+      return;
+    }
+
+    boundingBoxDimensionsLayer.hidden = true;
+    Object.values(boundingBoxDimensionLabels).forEach(({ element }) => {
+      if (element) {
+        element.hidden = true;
+      }
+    });
+  }
+
   function removeBoundingBoxHelper() {
     if (!currentModelBoundingBoxHelper) {
       return;
@@ -386,13 +454,180 @@ function initViewer() {
     currentModelBoundingBoxHelper.update();
   }
 
+  function projectWorldPointToViewer(point) {
+    if (!container) {
+      return null;
+    }
+
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    if (width <= 0 || height <= 0) {
+      return null;
+    }
+
+    const projected = point.clone().project(camera);
+    if (![projected.x, projected.y, projected.z].every((value) => Number.isFinite(value))) {
+      return null;
+    }
+
+    return {
+      x: (projected.x * 0.5 + 0.5) * width,
+      y: (-projected.y * 0.5 + 0.5) * height,
+      z: projected.z,
+      isVisible: projected.z >= -1 && projected.z <= 1,
+    };
+  }
+
+  function resolveStableBoundingBoxAnchorSign(axisKey, cameraComponent, threshold) {
+    const nextSign = cameraComponent >= 0 ? 1 : -1;
+    const currentSign = boundingBoxDimensionAnchorSigns[axisKey];
+    if (!currentSign) {
+      boundingBoxDimensionAnchorSigns[axisKey] = nextSign;
+      return nextSign;
+    }
+
+    if (cameraComponent >= threshold) {
+      boundingBoxDimensionAnchorSigns[axisKey] = 1;
+      return 1;
+    }
+
+    if (cameraComponent <= -threshold) {
+      boundingBoxDimensionAnchorSigns[axisKey] = -1;
+      return -1;
+    }
+
+    return currentSign;
+  }
+
+  function positionBoundingBoxDimensionLabel(labelEntry, textValue, startPoint, endPoint, centerScreenPoint) {
+    if (!labelEntry || !labelEntry.element || !labelEntry.valueElement) {
+      return;
+    }
+
+    const startScreenPoint = projectWorldPointToViewer(startPoint);
+    const endScreenPoint = projectWorldPointToViewer(endPoint);
+    if (
+      !startScreenPoint ||
+      !endScreenPoint ||
+      (!startScreenPoint.isVisible && !endScreenPoint.isVisible)
+    ) {
+      labelEntry.element.hidden = true;
+      return;
+    }
+
+    const midpointX = (startScreenPoint.x + endScreenPoint.x) * 0.5;
+    const midpointY = (startScreenPoint.y + endScreenPoint.y) * 0.5;
+    let offsetX = startScreenPoint.y - endScreenPoint.y;
+    let offsetY = endScreenPoint.x - startScreenPoint.x;
+    let offsetLength = Math.hypot(offsetX, offsetY);
+
+    if (offsetLength < 1e-3 && centerScreenPoint) {
+      offsetX = midpointX - centerScreenPoint.x;
+      offsetY = midpointY - centerScreenPoint.y;
+      offsetLength = Math.hypot(offsetX, offsetY);
+    }
+
+    if (offsetLength < 1e-3) {
+      offsetX = 0;
+      offsetY = -1;
+      offsetLength = 1;
+    }
+
+    offsetX /= offsetLength;
+    offsetY /= offsetLength;
+
+    if (centerScreenPoint) {
+      const outwardX = midpointX - centerScreenPoint.x;
+      const outwardY = midpointY - centerScreenPoint.y;
+      if (offsetX * outwardX + offsetY * outwardY < 0) {
+        offsetX *= -1;
+        offsetY *= -1;
+      }
+    }
+
+    const offsetDistance = BOUNDING_BOX_DIMENSION_LABEL_OFFSET;
+    if (boundingBoxDimensionsLayer) {
+      boundingBoxDimensionsLayer.hidden = false;
+    }
+    const roundedX = Math.round(midpointX + offsetX * offsetDistance);
+    const roundedY = Math.round(midpointY + offsetY * offsetDistance);
+    labelEntry.valueElement.textContent = textValue;
+    labelEntry.element.style.left = `${roundedX}px`;
+    labelEntry.element.style.top = `${roundedY}px`;
+    labelEntry.element.hidden = false;
+  }
+
+  function syncBoundingBoxDimensionLabels() {
+    if (!isBoundingBoxDimensionsVisible || !currentModelObject || !boundingBoxDimensionsLayer) {
+      hideBoundingBoxDimensionLabels();
+      return;
+    }
+
+    currentModelObject.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(currentModelObject);
+    if (bounds.isEmpty()) {
+      hideBoundingBoxDimensionLabels();
+      return;
+    }
+
+    const size = bounds.getSize(new THREE.Vector3());
+    const center = bounds.getCenter(new THREE.Vector3());
+    const centerScreenPoint = projectWorldPointToViewer(center);
+    const cameraRelative = camera.position.clone().sub(center);
+    const maxSize = Math.max(size.x, size.y, size.z, 1);
+    const anchorXSign = resolveStableBoundingBoxAnchorSign(
+      "x",
+      cameraRelative.x,
+      Math.max(size.x * BOUNDING_BOX_ANCHOR_HYSTERESIS, maxSize * 0.04, 0.5)
+    );
+    const anchorYSign = resolveStableBoundingBoxAnchorSign(
+      "y",
+      cameraRelative.y,
+      Math.max(size.y * BOUNDING_BOX_ANCHOR_HYSTERESIS, maxSize * 0.04, 0.5)
+    );
+    const anchorZSign = resolveStableBoundingBoxAnchorSign(
+      "z",
+      cameraRelative.z,
+      Math.max(size.z * BOUNDING_BOX_ANCHOR_HYSTERESIS, maxSize * 0.04, 0.5)
+    );
+    const anchorX = anchorXSign > 0 ? bounds.max.x : bounds.min.x;
+    const anchorY = anchorYSign > 0 ? bounds.max.y : bounds.min.y;
+    const anchorZ = anchorZSign > 0 ? bounds.max.z : bounds.min.z;
+
+    positionBoundingBoxDimensionLabel(
+      boundingBoxDimensionLabels.x,
+      formatDimension(size.x),
+      new THREE.Vector3(bounds.min.x, anchorY, anchorZ),
+      new THREE.Vector3(bounds.max.x, anchorY, anchorZ),
+      centerScreenPoint
+    );
+    positionBoundingBoxDimensionLabel(
+      boundingBoxDimensionLabels.y,
+      formatDimension(size.y),
+      new THREE.Vector3(anchorX, bounds.min.y, anchorZ),
+      new THREE.Vector3(anchorX, bounds.max.y, anchorZ),
+      centerScreenPoint
+    );
+    positionBoundingBoxDimensionLabel(
+      boundingBoxDimensionLabels.z,
+      formatDimension(size.z),
+      new THREE.Vector3(anchorX, anchorY, bounds.min.z),
+      new THREE.Vector3(anchorX, anchorY, bounds.max.z),
+      centerScreenPoint
+    );
+  }
+
   function setBoundingBoxVisibility(visible) {
     const nextState = Boolean(visible);
     isBoundingBoxVisible = nextState;
 
     if (nextState) {
       syncBoundingBoxHelper();
+      setBoundingBoxDimensionsToggleEnabled(true);
+      syncBoundingBoxDimensionLabels();
     } else {
+      setBoundingBoxDimensionsVisibility(false);
+      setBoundingBoxDimensionsToggleEnabled(false);
       removeBoundingBoxHelper();
     }
 
@@ -407,6 +642,32 @@ function initViewer() {
       nextState ? "Hide bounding box" : "Show bounding box"
     );
     boundingBoxToggleButton.title = nextState ? "Hide bounding box" : "Show bounding box";
+  }
+
+  function setBoundingBoxDimensionsVisibility(visible) {
+    const nextState = Boolean(visible) && isBoundingBoxVisible && Boolean(currentModelObject);
+    isBoundingBoxDimensionsVisible = nextState;
+
+    if (nextState) {
+      resetBoundingBoxDimensionAnchors();
+      syncBoundingBoxDimensionLabels();
+    } else {
+      hideBoundingBoxDimensionLabels();
+    }
+
+    if (!boundingBoxDimensionsToggleButton) {
+      return;
+    }
+
+    boundingBoxDimensionsToggleButton.classList.toggle("is-toggled", nextState);
+    boundingBoxDimensionsToggleButton.setAttribute("aria-pressed", String(nextState));
+    boundingBoxDimensionsToggleButton.setAttribute(
+      "aria-label",
+      nextState ? "Hide bounding box dimensions" : "Show bounding box dimensions"
+    );
+    boundingBoxDimensionsToggleButton.title = nextState
+      ? "Hide bounding box dimensions"
+      : "Show bounding box dimensions";
   }
 
   function setPlaceOnSelectedFaceEnabled(isEnabled) {
@@ -1356,6 +1617,9 @@ function initViewer() {
     setFaceSelectionEnabled(false);
     setAlignBoundingBoxEnabled(false);
     setBoundingBoxToggleEnabled(false);
+    setBoundingBoxDimensionsToggleEnabled(false);
+    setBoundingBoxDimensionsVisibility(false);
+    resetBoundingBoxDimensionAnchors();
     removeBoundingBoxHelper();
     currentModelFileSizeBytes = null;
 
@@ -1434,7 +1698,9 @@ function initViewer() {
     scene.add(currentModelObject);
     setAlignBoundingBoxEnabled(true);
     setBoundingBoxToggleEnabled(true);
+    setBoundingBoxDimensionsToggleEnabled(isBoundingBoxVisible);
     syncBoundingBoxHelper();
+    syncBoundingBoxDimensionLabels();
 
     const metrics = getModelMetrics(currentModelObject);
     frameObject(currentModelObject);
@@ -1529,11 +1795,16 @@ function initViewer() {
   }
 
   function render() {
+    controls.update();
+
     if (isBoundingBoxVisible) {
       syncBoundingBoxHelper();
     }
 
-    controls.update();
+    if (isBoundingBoxDimensionsVisible) {
+      syncBoundingBoxDimensionLabels();
+    }
+
     renderer.render(scene, camera);
     requestAnimationFrame(render);
   }
@@ -1708,6 +1979,17 @@ function initViewer() {
     });
   }
 
+  if (boundingBoxDimensionsToggleButton) {
+    boundingBoxDimensionsToggleButton.addEventListener("click", () => {
+      if (!currentModelObject || !isBoundingBoxVisible) {
+        setStatus("Enable the bounding box before showing its dimensions.", true);
+        return;
+      }
+
+      setBoundingBoxDimensionsVisibility(!isBoundingBoxDimensionsVisible);
+    });
+  }
+
   if (resetViewButton) {
     resetViewButton.addEventListener("click", () => {
       resetToDefaultView();
@@ -1758,7 +2040,9 @@ function initViewer() {
   setModelInfoVisibility(true);
   setAlignBoundingBoxEnabled(false);
   setBoundingBoxToggleEnabled(false);
+  setBoundingBoxDimensionsToggleEnabled(false);
   setBoundingBoxVisibility(false);
+  setBoundingBoxDimensionsVisibility(false);
   setFaceSelectionEnabled(false);
   clearSelectedFace();
   updateModelInfoPanel();

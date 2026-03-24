@@ -227,6 +227,60 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.viewer-bbox-dimensions {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.viewer-bbox-dimension-label {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.26rem 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(16, 26, 43, 0.86);
+  color: #f7fbff;
+  box-shadow: 0 6px 18px rgba(16, 26, 43, 0.22);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  will-change: left, top;
+}
+
+.viewer-bbox-dimensions[hidden],
+.viewer-bbox-dimension-label[hidden] {
+  display: none !important;
+}
+
+.viewer-bbox-dimension-axis {
+  min-width: 1.3rem;
+  padding: 0.08rem 0.28rem;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  color: #f9fcff;
+}
+
+.viewer-bbox-dimension-label[data-axis="x"] .viewer-bbox-dimension-axis {
+  background: #ff8a00;
+}
+
+.viewer-bbox-dimension-label[data-axis="y"] .viewer-bbox-dimension-axis {
+  background: #2d8cff;
+}
+
+.viewer-bbox-dimension-label[data-axis="z"] .viewer-bbox-dimension-axis {
+  background: #27a96c;
+}
+
 .model-list {
   margin-top: 1.5rem;
 }
@@ -464,6 +518,11 @@ body {
     left: 0.55rem;
     min-width: 180px;
     padding: 0.5rem 0.55rem;
+  }
+
+  .viewer-bbox-dimension-label {
+    padding: 0.22rem 0.42rem;
+    font-size: 0.69rem;
   }
 
   .viewer-model-info-row {

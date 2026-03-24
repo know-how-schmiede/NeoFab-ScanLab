@@ -15,6 +15,17 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.5.2 (2026-03-24)
+
+- Projektversion auf `0.5.2` erhoeht.
+- Optimierung Anzeige Abmessungen Bounding-Box (Flackern reduzieren)
+
+## 0.5.1 (2026-03-24)
+
+- Projektversion auf `0.5.1` erhoeht.
+- Abmessungen für Bounding-Box im Viewer anzeigen
+- Button BoundingBox Dimension
+
 ## 0.5.0 (2026-03-21)
 - Debian-13-Setup-Skripte fuer Installation, systemd-Service und Update-Prozess hinzugefuegt.
 - Eindeutigen WSGI-Einstieg fuer Flask/Gunicorn mit `scan-lab/wsgi.py` ergaenzt.
