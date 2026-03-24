@@ -2,7 +2,7 @@
 A simple Flask-based web viewer for 3D scan data using three.js.  This project demonstrates how 3D scan meshes (e.g. from Revopoint scanners) can be displayed interactively inside a web browser.
 The viewer supports modern web-friendly formats such as GLB / GLTF and is intended as an experimental prototype before integrating the functionality into the NeoFab Maker platform.
 
-![](./images/scan-lab_0-3-11.png)
+![Scan-Lab Dialog and Viewer](/images/24-03-2026_12-07-55.jpg)
 
 ## Project Goals
 
