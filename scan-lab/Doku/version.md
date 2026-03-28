@@ -15,6 +15,9 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.6.2 (2026-03-28)
+- Projektversion auf `0.6.2` erhoeht.
+- Viewer: 3MF-Import robuster gemacht, inklusive Fallback fuer mesh-basierte Dateien mit unvollstaendigen Materialreferenzen.
 ## 0.6.1 (2026-03-28)
 - Projektversion auf `0.6.1` erhoeht.
 - Viewer: Anzeige der Bounding-Box-Abmessungen bleibt beim Laden eines neuen Modells erhalten.

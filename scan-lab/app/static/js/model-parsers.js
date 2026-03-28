@@ -1,4 +1,6 @@
 import * as THREE from "../vendor/three/build/three.module.js";
+import { strFromU8, unzipSync } from "../vendor/three/examples/jsm/libs/fflate.module.js";
+import { toCreasedNormals } from "../vendor/three/examples/jsm/utils/BufferGeometryUtils.js";
 
 const SURFACE_MATERIAL_OPTIONS = {
   metalness: 0.1,
@@ -60,6 +62,22 @@ function finalizeSurfaceGeometry(geometry) {
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
   return geometry;
+}
+
+function finalizeCreasedSurfaceGeometry(geometry, creaseAngle = Math.PI / 3) {
+  const positionAttribute = geometry.getAttribute("position");
+  if (!positionAttribute || positionAttribute.count <= 0) {
+    throw new Error("Model geometry does not contain any vertices.");
+  }
+
+  const creasedGeometry = toCreasedNormals(geometry, creaseAngle);
+  if (creasedGeometry !== geometry) {
+    geometry.dispose();
+  }
+
+  creasedGeometry.computeBoundingBox();
+  creasedGeometry.computeBoundingSphere();
+  return creasedGeometry;
 }
 
 function resolveObjIndex(rawIndexText, itemCount) {
@@ -536,4 +554,364 @@ export function createPlyMeshFromArrayBuffer(arrayBuffer, colorHex) {
   finalizeSurfaceGeometry(geometry);
   const useVertexColors = Boolean(geometry.getAttribute("color"));
   return new THREE.Mesh(geometry, createSurfaceMaterial(colorHex, useVertexColors));
+}
+function normalizeThreeMfArchivePath(pathValue) {
+  if (typeof pathValue !== "string") {
+    return "";
+  }
+
+  return pathValue.replace(/\\/g, "/").replace(/^\/+/, "").trim();
+}
+
+function readThreeMfArchiveEntries(arrayBuffer) {
+  if (!(arrayBuffer instanceof ArrayBuffer) || arrayBuffer.byteLength <= 0) {
+    throw new Error("3MF data is empty.");
+  }
+
+  const archiveEntries = new Map();
+  const unzippedEntries = unzipSync(new Uint8Array(arrayBuffer));
+
+  Object.entries(unzippedEntries).forEach(([entryPath, entryBytes]) => {
+    const normalizedPath = normalizeThreeMfArchivePath(entryPath);
+    if (normalizedPath) {
+      archiveEntries.set(normalizedPath, entryBytes);
+    }
+  });
+
+  if (archiveEntries.size === 0) {
+    throw new Error("3MF archive does not contain any files.");
+  }
+
+  return archiveEntries;
+}
+
+function parseXmlDocument(xmlText, label) {
+  const parser = new DOMParser();
+  const documentNode = parser.parseFromString(xmlText, "application/xml");
+  const parserError = documentNode.querySelector("parsererror");
+  if (parserError) {
+    throw new Error(`${label} XML is invalid.`);
+  }
+
+  return documentNode;
+}
+
+function getElementChildren(node) {
+  return Array.from(node?.childNodes || []).filter((childNode) => childNode.nodeType === 1);
+}
+
+function getDirectChildrenByLocalName(node, localName) {
+  return getElementChildren(node).filter((childNode) => childNode.localName === localName);
+}
+
+function getFirstDirectChildByLocalName(node, localName) {
+  return getDirectChildrenByLocalName(node, localName)[0] || null;
+}
+
+function parseThreeMfRelationshipTarget(archiveEntries) {
+  const relationshipsPath = Array.from(archiveEntries.keys()).find((entryPath) => entryPath.toLowerCase() === "_rels/.rels");
+  if (!relationshipsPath) {
+    return "";
+  }
+
+  const relationshipsXml = strFromU8(archiveEntries.get(relationshipsPath));
+  const relationshipsDocument = parseXmlDocument(relationshipsXml, "3MF relationships");
+  const relationshipNodes = Array.from(relationshipsDocument.getElementsByTagName("*")).filter(
+    (element) => element.localName === "Relationship"
+  );
+  const modelRelationship = relationshipNodes.find((element) => {
+    const relationshipType = element.getAttribute("Type") || "";
+    return relationshipType.toLowerCase().includes("/3dmodel");
+  });
+
+  return normalizeThreeMfArchivePath(modelRelationship?.getAttribute("Target") || "");
+}
+
+function resolveThreeMfModelPath(archiveEntries) {
+  const relationshipTarget = parseThreeMfRelationshipTarget(archiveEntries);
+  if (relationshipTarget && archiveEntries.has(relationshipTarget)) {
+    return relationshipTarget;
+  }
+
+  const archivePaths = Array.from(archiveEntries.keys());
+  const preferredModelPath = archivePaths.find((entryPath) => /^3d\/.+\.model$/i.test(entryPath));
+  if (preferredModelPath) {
+    return preferredModelPath;
+  }
+
+  const fallbackModelPath = archivePaths.find((entryPath) => /\.model$/i.test(entryPath));
+  if (fallbackModelPath) {
+    return fallbackModelPath;
+  }
+
+  throw new Error("3MF archive does not contain a .model part.");
+}
+
+function readThreeMfModelDocument(arrayBuffer) {
+  const archiveEntries = readThreeMfArchiveEntries(arrayBuffer);
+  const modelPath = resolveThreeMfModelPath(archiveEntries);
+  const modelEntry = archiveEntries.get(modelPath);
+  if (!modelEntry) {
+    throw new Error(`3MF model part ${modelPath} is missing from the archive.`);
+  }
+
+  const modelXml = strFromU8(modelEntry);
+  const modelDocument = parseXmlDocument(modelXml, "3MF model");
+  const modelNode = getElementChildren(modelDocument).find((element) => element.localName === "model") || modelDocument.documentElement;
+  if (!modelNode || modelNode.localName !== "model") {
+    throw new Error("3MF archive does not contain a valid model element.");
+  }
+
+  return { modelDocument, modelNode };
+}
+
+function parseThreeMfNumericAttribute(node, attributeName) {
+  const value = Number.parseFloat(node?.getAttribute(attributeName));
+  return Number.isFinite(value) ? value : NaN;
+}
+
+function parseThreeMfIntegerAttribute(node, attributeName) {
+  const value = Number.parseInt(node?.getAttribute(attributeName), 10);
+  return Number.isInteger(value) ? value : -1;
+}
+
+function parseThreeMfTransform(transformText) {
+  if (typeof transformText !== "string" || transformText.trim() === "") {
+    return null;
+  }
+
+  const values = transformText
+    .trim()
+    .split(/\s+/)
+    .map((value) => Number.parseFloat(value));
+
+  if (values.length !== 12 || !values.every(Number.isFinite)) {
+    throw new Error("3MF component transform is invalid.");
+  }
+
+  const matrix = new THREE.Matrix4();
+  matrix.set(
+    values[0], values[3], values[6], values[9],
+    values[1], values[4], values[7], values[10],
+    values[2], values[5], values[8], values[11],
+    0, 0, 0, 1
+  );
+  return matrix;
+}
+
+function getThreeMfUnitScaleToMillimeter(unitName) {
+  switch ((unitName || "millimeter").toLowerCase()) {
+    case "micron":
+      return 0.001;
+    case "millimeter":
+      return 1;
+    case "centimeter":
+      return 10;
+    case "meter":
+      return 1000;
+    case "inch":
+      return 25.4;
+    case "foot":
+      return 304.8;
+    default:
+      return 1;
+  }
+}
+
+function hasRenderableGeometry(object3d) {
+  let hasMeshGeometry = false;
+
+  object3d?.traverse((node) => {
+    if (hasMeshGeometry || !node.isMesh || !node.geometry) {
+      return;
+    }
+
+    const positionAttribute = node.geometry.getAttribute("position");
+    if (positionAttribute && positionAttribute.count > 0) {
+      hasMeshGeometry = true;
+    }
+  });
+
+  return hasMeshGeometry;
+}
+
+function createThreeMfMesh(meshNode, colorHex) {
+  const verticesNode = getFirstDirectChildByLocalName(meshNode, "vertices");
+  const trianglesNode = getFirstDirectChildByLocalName(meshNode, "triangles");
+  if (!verticesNode || !trianglesNode) {
+    throw new Error("3MF mesh is incomplete.");
+  }
+
+  const vertexNodes = getDirectChildrenByLocalName(verticesNode, "vertex");
+  if (vertexNodes.length === 0) {
+    throw new Error("3MF mesh does not contain any vertices.");
+  }
+
+  const positions = [];
+  vertexNodes.forEach((vertexNode) => {
+    const x = parseThreeMfNumericAttribute(vertexNode, "x");
+    const y = parseThreeMfNumericAttribute(vertexNode, "y");
+    const z = parseThreeMfNumericAttribute(vertexNode, "z");
+    if (![x, y, z].every(Number.isFinite)) {
+      throw new Error("3MF vertex is missing coordinates.");
+    }
+
+    positions.push(x, y, z);
+  });
+
+  const triangleNodes = getDirectChildrenByLocalName(trianglesNode, "triangle");
+  if (triangleNodes.length === 0) {
+    throw new Error("3MF mesh does not contain any triangles.");
+  }
+
+  const indices = [];
+  const vertexCount = positions.length / 3;
+  triangleNodes.forEach((triangleNode) => {
+    const v1 = parseThreeMfIntegerAttribute(triangleNode, "v1");
+    const v2 = parseThreeMfIntegerAttribute(triangleNode, "v2");
+    const v3 = parseThreeMfIntegerAttribute(triangleNode, "v3");
+    const triangleIndices = [v1, v2, v3];
+
+    if (!triangleIndices.every((indexValue) => indexValue >= 0 && indexValue < vertexCount)) {
+      throw new Error("3MF triangle references an invalid vertex index.");
+    }
+
+    indices.push(v1, v2, v3);
+  });
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+
+  const finalizedGeometry = finalizeCreasedSurfaceGeometry(geometry);
+  return new THREE.Mesh(finalizedGeometry, createSurfaceMaterial(colorHex));
+}
+
+export function inspectThreeMfArrayBuffer(arrayBuffer) {
+  const { modelNode } = readThreeMfModelDocument(arrayBuffer);
+  const directElementNames = new Set(
+    Array.from(modelNode.getElementsByTagName("*")).map((element) => element.localName)
+  );
+
+  return {
+    hasDisplayResources:
+      directElementNames.has("basematerials") ||
+      directElementNames.has("colorgroup") ||
+      directElementNames.has("texture2dgroup") ||
+      directElementNames.has("texture2d") ||
+      directElementNames.has("pbmetallicdisplayproperties"),
+  };
+}
+
+export function createThreeMfObjectFromArrayBuffer(arrayBuffer, colorHex) {
+  const { modelNode } = readThreeMfModelDocument(arrayBuffer);
+  const resourcesNode = getFirstDirectChildByLocalName(modelNode, "resources");
+  if (!resourcesNode) {
+    throw new Error("3MF model does not contain any resources.");
+  }
+
+  const objectNodes = new Map();
+  getDirectChildrenByLocalName(resourcesNode, "object").forEach((objectNode) => {
+    const objectId = objectNode.getAttribute("id");
+    if (objectId) {
+      objectNodes.set(objectId, objectNode);
+    }
+  });
+
+  if (objectNodes.size === 0) {
+    throw new Error("3MF model does not contain any objects.");
+  }
+
+  const builtObjects = new Map();
+  const buildObjectById = (objectId, ancestry = []) => {
+    if (builtObjects.has(objectId)) {
+      return builtObjects.get(objectId);
+    }
+
+    const objectNode = objectNodes.get(objectId);
+    if (!objectNode) {
+      throw new Error(`3MF references missing object ${objectId}.`);
+    }
+
+    if (ancestry.includes(objectId)) {
+      throw new Error(`3MF contains a circular object reference for ${objectId}.`);
+    }
+
+    const meshNode = getFirstDirectChildByLocalName(objectNode, "mesh");
+    let object3d;
+
+    if (meshNode) {
+      object3d = createThreeMfMesh(meshNode, colorHex);
+    } else {
+      const componentsNode = getFirstDirectChildByLocalName(objectNode, "components");
+      const componentNodes = getDirectChildrenByLocalName(componentsNode, "component");
+      if (componentNodes.length === 0) {
+        throw new Error(`3MF object ${objectId} does not contain a supported mesh or components.`);
+      }
+
+      object3d = new THREE.Group();
+      componentNodes.forEach((componentNode) => {
+        const componentObjectId = componentNode.getAttribute("objectid");
+        if (!componentObjectId) {
+          throw new Error(`3MF object ${objectId} contains a component without objectid.`);
+        }
+
+        const componentObject = buildObjectById(componentObjectId, [...ancestry, objectId]).clone(true);
+        const transform = parseThreeMfTransform(componentNode.getAttribute("transform"));
+        if (transform) {
+          componentObject.applyMatrix4(transform);
+        }
+
+        object3d.add(componentObject);
+      });
+    }
+
+    const objectName = objectNode.getAttribute("name");
+    if (objectName) {
+      object3d.name = objectName;
+    }
+
+    builtObjects.set(objectId, object3d);
+    return object3d;
+  };
+
+  const rootGroup = new THREE.Group();
+  const buildNode = getFirstDirectChildByLocalName(modelNode, "build");
+  const itemNodes = getDirectChildrenByLocalName(buildNode, "item");
+
+  if (itemNodes.length > 0) {
+    itemNodes.forEach((itemNode) => {
+      const objectId = itemNode.getAttribute("objectid");
+      if (!objectId) {
+        throw new Error("3MF build item is missing objectid.");
+      }
+
+      const itemObject = buildObjectById(objectId).clone(true);
+      const transform = parseThreeMfTransform(itemNode.getAttribute("transform"));
+      if (transform) {
+        itemObject.applyMatrix4(transform);
+      }
+
+      rootGroup.add(itemObject);
+    });
+  } else if (objectNodes.size === 1) {
+    const [onlyObjectId] = objectNodes.keys();
+    rootGroup.add(buildObjectById(onlyObjectId).clone(true));
+  } else {
+    objectNodes.forEach((_, objectId) => {
+      rootGroup.add(buildObjectById(objectId).clone(true));
+    });
+  }
+
+  const unitScale = getThreeMfUnitScaleToMillimeter(modelNode.getAttribute("unit"));
+  if (unitScale !== 1) {
+    rootGroup.scale.setScalar(unitScale);
+  }
+
+  rootGroup.updateMatrixWorld(true);
+  if (!hasRenderableGeometry(rootGroup)) {
+    throw new Error("3MF does not contain any renderable geometry.");
+  }
+
+  return rootGroup;
 }

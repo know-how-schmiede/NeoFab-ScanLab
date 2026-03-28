@@ -2,7 +2,8 @@ import * as THREE from "../vendor/three/build/three.module.js";
 import { OrbitControls } from "../vendor/three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "../vendor/three/examples/jsm/loaders/STLLoader.js";
 import { GLTFLoader } from "../vendor/three/examples/jsm/loaders/GLTFLoader.js";
-import { createObjMeshFromText, createPlyMeshFromArrayBuffer } from "./model-parsers.js";
+import { ThreeMFLoader } from "../vendor/three/examples/jsm/loaders/3MFLoader.js";
+import { createObjMeshFromText, createPlyMeshFromArrayBuffer, createThreeMfObjectFromArrayBuffer, inspectThreeMfArrayBuffer } from "./model-parsers.js";
 
 const container = document.getElementById("viewer-container");
 const statusElement = document.getElementById("viewer-status");
@@ -41,7 +42,7 @@ const DEFAULT_VIEWER_SIZE = "standard";
 const AUTO_ROTATE_SPEED = 1.6;
 const BOUNDING_BOX_DIMENSION_LABEL_OFFSET = 18;
 const BOUNDING_BOX_ANCHOR_HYSTERESIS = 0.12;
-const SUPPORTED_LOCAL_EXTENSIONS = new Set(["stl", "glb", "gltf", "obj", "ply"]);
+const SUPPORTED_LOCAL_EXTENSIONS = new Set(["stl", "glb", "gltf", "obj", "ply", "3mf"]);
 const COLOR_FAVORITES_STORAGE_KEY = "scanlab.viewer.favorite_colors.v1";
 const FACE_GROUND_TARGET_NORMAL = new THREE.Vector3(0, -1, 0);
 const VIEWER_SIZE_PRESETS = {
@@ -1854,6 +1855,61 @@ function initViewer() {
     return gltf.scene || (Array.isArray(gltf.scenes) ? gltf.scenes[0] : null);
   }
 
+  function prepareThreeMfObject(object3d) {
+    if (!object3d) {
+      throw new Error("3MF does not contain a valid object.");
+    }
+
+    object3d.rotation.set(-Math.PI / 2, 0, 0);
+    object3d.updateMatrixWorld(true);
+    return object3d;
+  }
+
+  function hasRenderableGeometry(object3d) {
+    if (!object3d) {
+      return false;
+    }
+
+    let renderableMeshCount = 0;
+    object3d.traverse((node) => {
+      if (renderableMeshCount > 0 || !node.isMesh || !node.geometry) {
+        return;
+      }
+
+      const positionAttribute = node.geometry.getAttribute("position");
+      if (positionAttribute && positionAttribute.count > 0) {
+        renderableMeshCount += 1;
+      }
+    });
+
+    return renderableMeshCount > 0;
+  }
+
+  function parseThreeMfObject(buffer) {
+    const inspection = inspectThreeMfArrayBuffer(buffer);
+    const useOfficialLoader = inspection.hasDisplayResources;
+
+    if (useOfficialLoader) {
+      try {
+        const loadedObject = prepareThreeMfObject(threeMfLoader.parse(buffer));
+        if (hasRenderableGeometry(loadedObject)) {
+          return loadedObject;
+        }
+
+        console.warn("3MF loader returned no renderable geometry. Falling back to simplified parser.");
+      } catch (error) {
+        console.warn("3MF loader failed. Falling back to simplified parser.", error);
+      }
+    }
+
+    const fallbackObject = prepareThreeMfObject(createThreeMfObjectFromArrayBuffer(buffer, currentModelColor.getHex()));
+    if (!hasRenderableGeometry(fallbackObject)) {
+      throw new Error("3MF does not contain any renderable geometry.");
+    }
+
+    return fallbackObject;
+  }
+
   async function fetchModelArrayBuffer(modelUrl) {
     const response = await fetch(modelUrl);
     if (!response.ok) {
@@ -1971,6 +2027,19 @@ function initViewer() {
       return;
     }
 
+    if (extension === "3mf") {
+      void fetchModelArrayBuffer(modelUrl)
+        .then((buffer) => {
+          const object3d = parseThreeMfObject(buffer);
+          finalizeLoadedModel(object3d, modelName, { sourceButton, fileSizeBytes });
+        })
+        .catch((error) => {
+          console.error("3MF model load failed.", error);
+          setStatus(`Failed to load ${modelName}.`, true);
+        });
+      return;
+    }
+
     setStatus(`Unsupported model format for ${modelName}.`, true);
   }
 
@@ -1987,7 +2056,7 @@ function initViewer() {
 
     const extension = getFileExtension(file.name);
     if (!SUPPORTED_LOCAL_EXTENSIONS.has(extension)) {
-      setStatus("Unsupported local file. Use .stl, .glb, .gltf, .obj, or .ply.", true);
+      setStatus("Unsupported local file. Use .stl, .glb, .gltf, .obj, .ply, or .3mf.", true);
       return;
     }
 
@@ -2014,6 +2083,12 @@ function initViewer() {
       if (extension === "ply") {
         const mesh = createPlyMeshFromArrayBuffer(buffer, currentModelColor.getHex());
         finalizeLoadedModel(mesh, file.name, { fileSizeBytes: file.size });
+        return;
+      }
+
+      if (extension === "3mf") {
+        const object3d = parseThreeMfObject(buffer);
+        finalizeLoadedModel(object3d, file.name, { fileSizeBytes: file.size });
         return;
       }
 
