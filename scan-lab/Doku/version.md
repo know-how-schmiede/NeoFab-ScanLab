@@ -15,6 +15,11 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.6.0 (2026-03-28)
+- Projektversion auf `0.6.0` erhoeht.
+- Homepage: Abschnitt mit Beschreibung der unterstuetzten Import-Formate ergaenzt.
+- Viewer: Upload- und Beispielmodell-Support fuer `STL`, `OBJ`, `PLY`, `GLB` und `glTF` auf der Startseite dokumentiert.
+
 ## 0.5.4 (2026-03-28)
 - Projektversion auf `0.5.4` erhoeht.
 - Viewer: PNG-Export uebernimmt jetzt auch sichtbare Abmessungen der Bounding-Box.

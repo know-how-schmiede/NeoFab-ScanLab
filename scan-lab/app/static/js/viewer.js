@@ -2,6 +2,7 @@ import * as THREE from "../vendor/three/build/three.module.js";
 import { OrbitControls } from "../vendor/three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "../vendor/three/examples/jsm/loaders/STLLoader.js";
 import { GLTFLoader } from "../vendor/three/examples/jsm/loaders/GLTFLoader.js";
+import { createObjMeshFromText, createPlyMeshFromArrayBuffer } from "./model-parsers.js";
 
 const container = document.getElementById("viewer-container");
 const statusElement = document.getElementById("viewer-status");
@@ -40,7 +41,7 @@ const DEFAULT_VIEWER_SIZE = "standard";
 const AUTO_ROTATE_SPEED = 1.6;
 const BOUNDING_BOX_DIMENSION_LABEL_OFFSET = 18;
 const BOUNDING_BOX_ANCHOR_HYSTERESIS = 0.12;
-const SUPPORTED_LOCAL_EXTENSIONS = new Set(["stl", "glb"]);
+const SUPPORTED_LOCAL_EXTENSIONS = new Set(["stl", "glb", "gltf", "obj", "ply"]);
 const COLOR_FAVORITES_STORAGE_KEY = "scanlab.viewer.favorite_colors.v1";
 const FACE_GROUND_TARGET_NORMAL = new THREE.Vector3(0, -1, 0);
 const VIEWER_SIZE_PRESETS = {
@@ -1843,6 +1844,28 @@ function initViewer() {
     return new THREE.Mesh(geometry, material);
   }
 
+  function extractGltfRoot(gltf) {
+    return gltf.scene || (Array.isArray(gltf.scenes) ? gltf.scenes[0] : null);
+  }
+
+  async function fetchModelArrayBuffer(modelUrl) {
+    const response = await fetch(modelUrl);
+    if (!response.ok) {
+      throw new Error(`Request failed with status ${response.status}.`);
+    }
+
+    return response.arrayBuffer();
+  }
+
+  async function fetchModelText(modelUrl) {
+    const response = await fetch(modelUrl);
+    if (!response.ok) {
+      throw new Error(`Request failed with status ${response.status}.`);
+    }
+
+    return response.text();
+  }
+
   function finalizeLoadedModel(object3d, modelName, { sourceButton = null, fileSizeBytes = null } = {}) {
     disposeCurrentModel();
     currentModelObject = object3d;
@@ -1875,22 +1898,79 @@ function initViewer() {
 
     setStatus(`Loading ${modelName} ...`);
 
-    stlLoader.load(
-      modelUrl,
-      (geometry) => {
-        const mesh = createStlMesh(geometry);
-        finalizeLoadedModel(mesh, modelName, { sourceButton, fileSizeBytes });
-      },
-      undefined,
-      () => {
-        setStatus(`Failed to load ${modelName}.`, true);
-      }
-    );
+    const extension = getFileExtension(modelName);
+
+    if (extension === "stl") {
+      stlLoader.load(
+        modelUrl,
+        (geometry) => {
+          const mesh = createStlMesh(geometry);
+          finalizeLoadedModel(mesh, modelName, { sourceButton, fileSizeBytes });
+        },
+        undefined,
+        () => {
+          setStatus(`Failed to load ${modelName}.`, true);
+        }
+      );
+      return;
+    }
+
+    if (extension === "glb" || extension === "gltf") {
+      gltfLoader.load(
+        modelUrl,
+        (gltf) => {
+          try {
+            const gltfRoot = extractGltfRoot(gltf);
+            if (!gltfRoot) {
+              throw new Error("glTF does not contain a scene.");
+            }
+
+            finalizeLoadedModel(gltfRoot, modelName, { sourceButton, fileSizeBytes });
+          } catch (error) {
+            console.error("glTF model load failed.", error);
+            setStatus(`Failed to load ${modelName}.`, true);
+          }
+        },
+        undefined,
+        () => {
+          setStatus(`Failed to load ${modelName}.`, true);
+        }
+      );
+      return;
+    }
+
+    if (extension === "obj") {
+      void fetchModelText(modelUrl)
+        .then((objText) => {
+          const mesh = createObjMeshFromText(objText, currentModelColor.getHex());
+          finalizeLoadedModel(mesh, modelName, { sourceButton, fileSizeBytes });
+        })
+        .catch((error) => {
+          console.error("OBJ model load failed.", error);
+          setStatus(`Failed to load ${modelName}.`, true);
+        });
+      return;
+    }
+
+    if (extension === "ply") {
+      void fetchModelArrayBuffer(modelUrl)
+        .then((buffer) => {
+          const mesh = createPlyMeshFromArrayBuffer(buffer, currentModelColor.getHex());
+          finalizeLoadedModel(mesh, modelName, { sourceButton, fileSizeBytes });
+        })
+        .catch((error) => {
+          console.error("PLY model load failed.", error);
+          setStatus(`Failed to load ${modelName}.`, true);
+        });
+      return;
+    }
+
+    setStatus(`Unsupported model format for ${modelName}.`, true);
   }
 
-  function parseGlb(arrayBuffer) {
+  function parseGltfData(data) {
     return new Promise((resolve, reject) => {
-      gltfLoader.parse(arrayBuffer, "", resolve, reject);
+      gltfLoader.parse(data, "", resolve, reject);
     });
   }
 
@@ -1901,7 +1981,7 @@ function initViewer() {
 
     const extension = getFileExtension(file.name);
     if (!SUPPORTED_LOCAL_EXTENSIONS.has(extension)) {
-      setStatus("Unsupported local file. Use .stl or .glb.", true);
+      setStatus("Unsupported local file. Use .stl, .glb, .gltf, .obj, or .ply.", true);
       return;
     }
 
@@ -1918,16 +1998,38 @@ function initViewer() {
         return;
       }
 
-      const gltf = await parseGlb(buffer);
-      const gltfRoot = gltf.scene || (Array.isArray(gltf.scenes) ? gltf.scenes[0] : null);
+      if (extension === "obj") {
+        const objText = new TextDecoder("utf-8").decode(buffer);
+        const mesh = createObjMeshFromText(objText, currentModelColor.getHex());
+        finalizeLoadedModel(mesh, file.name, { fileSizeBytes: file.size });
+        return;
+      }
+
+      if (extension === "ply") {
+        const mesh = createPlyMeshFromArrayBuffer(buffer, currentModelColor.getHex());
+        finalizeLoadedModel(mesh, file.name, { fileSizeBytes: file.size });
+        return;
+      }
+
+      const gltfData = extension === "gltf" ? new TextDecoder("utf-8").decode(buffer) : buffer;
+      const gltf = await parseGltfData(gltfData);
+      const gltfRoot = extractGltfRoot(gltf);
 
       if (!gltfRoot) {
-        throw new Error("GLB does not contain a scene.");
+        throw new Error(`${extension.toUpperCase()} does not contain a scene.`);
       }
 
       finalizeLoadedModel(gltfRoot, file.name, { fileSizeBytes: file.size });
     } catch (error) {
       console.error("Local model load failed.", error);
+      if (extension === "gltf") {
+        setStatus(
+          `Failed to load ${file.name}. Local .gltf works only when buffers and textures are embedded; otherwise use .glb.`,
+          true
+        );
+        return;
+      }
+
       setStatus(`Failed to load ${file.name}.`, true);
     }
   }

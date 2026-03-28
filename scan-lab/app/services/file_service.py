@@ -3,7 +3,8 @@
 from pathlib import Path
 from typing import Iterable, List
 
-SUPPORTED_MODEL_EXTENSIONS = {".glb", ".gltf", ".obj", ".stl"}
+SUPPORTED_MODEL_EXTENSIONS = {".glb", ".gltf", ".obj", ".ply", ".stl"}
+SUPPORTED_SAMPLE_ASSET_EXTENSIONS = SUPPORTED_MODEL_EXTENSIONS | {".bin", ".jpeg", ".jpg", ".png", ".webp"}
 
 
 def list_available_models(models_dir: Path) -> List[str]:

@@ -6,7 +6,7 @@
 <section class="card">
   <h2>Viewer Playground</h2>
   <p>
-    Select a sample STL file from <code>sample_models/</code> or load a local STL/GLB file.
+    Select a sample model from <code>sample_models/</code> or load a local STL/GLB/GLTF/OBJ/PLY file.
   </p>
 
   <section class="model-list">
@@ -40,14 +40,14 @@
         type="button"
         id="local-model-button"
         class="control-button"
-        title="Choose and load a local STL or GLB file"
+        title="Choose and load a local STL, GLB, GLTF, OBJ, or PLY file"
       >
-        Choose STL/GLB file
+        Choose STL/GLB/GLTF/OBJ/PLY file
       </button>
       <input
         type="file"
         id="local-model-input"
-        accept=".stl,.glb,model/stl,model/gltf-binary"
+        accept=".stl,.glb,.gltf,.obj,.ply,model/stl,model/gltf-binary,model/gltf+json"
         class="visually-hidden"
       />
       <span class="viewer-upload-hint">or drop a file into the area below</span>
@@ -57,10 +57,10 @@
       class="viewer-dropzone"
       role="button"
       tabindex="0"
-      aria-label="Drop local STL or GLB file here"
-      title="Drop a local STL or GLB file to load it"
+      aria-label="Drop local STL, GLB, GLTF, OBJ, or PLY file here"
+      title="Drop a local STL, GLB, GLTF, OBJ, or PLY file to load it"
     >
-      Drag and drop STL/GLB here
+      Drag and drop STL/GLB/GLTF/OBJ/PLY here
     </div>
   </section>
 

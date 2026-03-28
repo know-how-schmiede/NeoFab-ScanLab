@@ -1,0 +1,128 @@
+{
+    "asset": {
+        "version": "2.0",
+        "generator": "Open Asset Import Library (assimp v5.4.7ef6fb10)"
+    },
+    "extensionsUsed": [
+        "KHR_materials_specular",
+        "KHR_materials_volume",
+        "FB_ngon_encoding"
+    ],
+    "accessors": [
+        {
+            "bufferView": 0,
+            "byteOffset": 0,
+            "componentType": 5126,
+            "count": 368172,
+            "type": "VEC3",
+            "max": [
+                51.63739013671875,
+                25.562969207763672,
+                63.00282287597656
+            ],
+            "min": [
+                -51.642372131347656,
+                -25.52979278564453,
+                -0.003021240234375
+            ]
+        },
+        {
+            "bufferView": 1,
+            "byteOffset": 0,
+            "componentType": 5126,
+            "count": 368172,
+            "type": "VEC3",
+            "max": [
+                0.9999437928199768,
+                0.9999225735664368,
+                0.9998850226402283
+            ],
+            "min": [
+                -0.9999936819076538,
+                -0.9999918937683105,
+                -0.9999974370002747
+            ]
+        },
+        {
+            "bufferView": 2,
+            "byteOffset": 0,
+            "componentType": 5125,
+            "count": 2209020,
+            "type": "SCALAR",
+            "max": [
+                368171
+            ],
+            "min": [
+                0
+            ]
+        }
+    ],
+    "buffers": [
+        {
+            "byteLength": 17672208,
+            "uri": "NiereNG_B_mesh.bin"
+        }
+    ],
+    "bufferViews": [
+        {
+            "buffer": 0,
+            "byteOffset": 0,
+            "byteLength": 4418064,
+            "target": 34962
+        },
+        {
+            "buffer": 0,
+            "byteOffset": 4418064,
+            "byteLength": 4418064,
+            "target": 34962
+        },
+        {
+            "buffer": 0,
+            "byteOffset": 8836128,
+            "byteLength": 8836080,
+            "target": 34963
+        }
+    ],
+    "materials": [
+        {
+            "name": "material",
+            "pbrMetallicRoughness": {
+                "metallicFactor": 0.0
+            },
+            "doubleSided": true,
+            "extensions": {
+                "KHR_materials_specular": {
+                    "specularFactor": 1.0
+                }
+            }
+        }
+    ],
+    "meshes": [
+        {
+            "primitives": [
+                {
+                    "mode": 4,
+                    "material": 0,
+                    "indices": 2,
+                    "attributes": {
+                        "POSITION": 0,
+                        "NORMAL": 1
+                    }
+                }
+            ]
+        }
+    ],
+    "nodes": [
+        {
+            "mesh": 0
+        }
+    ],
+    "scenes": [
+        {
+            "nodes": [
+                0
+            ]
+        }
+    ],
+    "scene": 0
+}

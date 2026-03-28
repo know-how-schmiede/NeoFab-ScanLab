@@ -4,7 +4,7 @@ from pathlib import Path
 
 from flask import Blueprint, abort, current_app, render_template, send_from_directory, url_for
 
-from .services.file_service import SUPPORTED_MODEL_EXTENSIONS, list_available_models
+from .services.file_service import SUPPORTED_SAMPLE_ASSET_EXTENSIONS, list_available_models
 
 main_bp = Blueprint("main", __name__)
 
@@ -41,7 +41,7 @@ def viewer():
 @main_bp.route("/sample-models/<path:filename>")
 def sample_model(filename):
     """Serve sample model files from the project sample_models folder."""
-    if Path(filename).suffix.lower() not in SUPPORTED_MODEL_EXTENSIONS:
+    if Path(filename).suffix.lower() not in SUPPORTED_SAMPLE_ASSET_EXTENSIONS:
         abort(404)
 
     models_dir = Path(current_app.config["SAMPLE_MODELS_DIR"]).resolve()
