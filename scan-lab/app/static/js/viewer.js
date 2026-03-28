@@ -1765,13 +1765,19 @@ function initViewer() {
     material.dispose();
   }
 
-  function disposeCurrentModel() {
+  function disposeCurrentModel({ preserveBoundingBoxDimensionsVisibility = false } = {}) {
     clearSelectedFace();
     setFaceSelectionEnabled(false);
     setAlignBoundingBoxEnabled(false);
     setBoundingBoxToggleEnabled(false);
     setBoundingBoxDimensionsToggleEnabled(false);
-    setBoundingBoxDimensionsVisibility(false);
+
+    if (preserveBoundingBoxDimensionsVisibility && isBoundingBoxDimensionsVisible) {
+      hideBoundingBoxDimensionLabels();
+    } else {
+      setBoundingBoxDimensionsVisibility(false);
+    }
+
     resetBoundingBoxDimensionAnchors();
     removeBoundingBoxHelper();
     currentModelFileSizeBytes = null;
@@ -1867,7 +1873,7 @@ function initViewer() {
   }
 
   function finalizeLoadedModel(object3d, modelName, { sourceButton = null, fileSizeBytes = null } = {}) {
-    disposeCurrentModel();
+    disposeCurrentModel({ preserveBoundingBoxDimensionsVisibility: true });
     currentModelObject = object3d;
     currentModelFileSizeBytes = fileSizeBytes;
     scene.add(currentModelObject);
