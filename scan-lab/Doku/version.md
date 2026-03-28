@@ -15,6 +15,9 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.7.1 (2026-03-28)
+- Projektversion auf `0.7.1` erhoeht.
+- Viewer: Kurze Bedienhilfe fuer Maussteuerung als ausklappbares Help-Dock auf der rechten Seite hinzugefuegt.
 ## 0.7.0 (2026-03-28)
 - Projektversion auf `0.7.0` erhoeht.
 - Viewer: Ausklappbares Controls-Dock auf der rechten Seite fuer Model color, Lighting profile und Viewer size hinzugefuegt.

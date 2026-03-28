@@ -42,6 +42,9 @@ const viewerFloatingDock = document.getElementById("viewer-floating-dock");
 const viewerModelsDockShell = document.getElementById("viewer-models-dock-shell");
 const viewerModelsDockToggleButton = document.getElementById("viewer-models-dock-toggle");
 const viewerModelsFloatingDock = document.getElementById("viewer-models-dock");
+const viewerHelpDockShell = document.getElementById("viewer-help-dock-shell");
+const viewerHelpDockToggleButton = document.getElementById("viewer-help-dock-toggle");
+const viewerHelpFloatingDock = document.getElementById("viewer-help-dock");
 
 const DEFAULT_MODEL_COLOR = "#8aa2c8";
 const DEFAULT_LIGHT_PROFILE = "studio";
@@ -53,6 +56,7 @@ const SUPPORTED_LOCAL_EXTENSIONS = new Set(["stl", "glb", "gltf", "obj", "ply", 
 const COLOR_FAVORITES_STORAGE_KEY = "scanlab.viewer.favorite_colors.v1";
 const VIEWER_DOCK_OPEN_STORAGE_KEY = "scanlab.viewer.appearance_dock_open.v1";
 const VIEWER_MODELS_DOCK_OPEN_STORAGE_KEY = "scanlab.viewer.sample_models_dock_open.v1";
+const VIEWER_HELP_DOCK_OPEN_STORAGE_KEY = "scanlab.viewer.help_dock_open.v1";
 const FACE_GROUND_TARGET_NORMAL = new THREE.Vector3(0, -1, 0);
 const VIEWER_SIZE_PRESETS = {
   compact: { label: "Compact" },
@@ -266,6 +270,7 @@ function initViewer() {
   let favoritePresetColors = [];
   let isViewerDockOpen = false;
   let isViewerModelsDockOpen = false;
+  let isViewerHelpDockOpen = false;
 
   function setResetViewEnabled(isEnabled) {
     if (!resetViewButton) {
@@ -372,6 +377,56 @@ function initViewer() {
 
     if (persist) {
       persistViewerModelsDockState();
+    }
+  }
+
+  function loadViewerHelpDockStateFromStorage() {
+    if (typeof localStorage === "undefined") {
+      return false;
+    }
+
+    try {
+      return localStorage.getItem(VIEWER_HELP_DOCK_OPEN_STORAGE_KEY) === "1";
+    } catch (error) {
+      console.warn("Unable to read viewer help dock state from localStorage.", error);
+      return false;
+    }
+  }
+
+  function persistViewerHelpDockState() {
+    if (typeof localStorage === "undefined") {
+      return;
+    }
+
+    try {
+      localStorage.setItem(VIEWER_HELP_DOCK_OPEN_STORAGE_KEY, isViewerHelpDockOpen ? "1" : "0");
+    } catch (error) {
+      console.warn("Unable to persist viewer help dock state to localStorage.", error);
+    }
+  }
+
+  function setViewerHelpDockOpen(nextState, { persist = true } = {}) {
+    isViewerHelpDockOpen = Boolean(nextState);
+
+    if (viewerHelpDockShell) {
+      viewerHelpDockShell.classList.toggle("is-open", isViewerHelpDockOpen);
+    }
+
+    if (viewerHelpFloatingDock) {
+      viewerHelpFloatingDock.setAttribute("aria-hidden", String(!isViewerHelpDockOpen));
+    }
+
+    if (viewerHelpDockToggleButton) {
+      const nextLabel = isViewerHelpDockOpen ? "Close" : "Help";
+      const nextTitle = isViewerHelpDockOpen ? "Close viewer help" : "Open viewer help";
+      viewerHelpDockToggleButton.textContent = nextLabel;
+      viewerHelpDockToggleButton.setAttribute("aria-expanded", String(isViewerHelpDockOpen));
+      viewerHelpDockToggleButton.setAttribute("aria-label", nextTitle);
+      viewerHelpDockToggleButton.title = nextTitle;
+    }
+
+    if (persist) {
+      persistViewerHelpDockState();
     }
   }
 
@@ -2574,7 +2629,13 @@ function initViewer() {
     });
   }
 
-  if ((viewerDockShell || viewerModelsDockShell) && typeof document !== "undefined") {
+  if (viewerHelpDockToggleButton) {
+    viewerHelpDockToggleButton.addEventListener("click", () => {
+      setViewerHelpDockOpen(!isViewerHelpDockOpen);
+    });
+  }
+
+  if ((viewerDockShell || viewerModelsDockShell || viewerHelpDockShell) && typeof document !== "undefined") {
     document.addEventListener("click", (event) => {
       if (isViewerDockOpen && viewerDockShell && !viewerDockShell.contains(event.target)) {
         setViewerDockOpen(false);
@@ -2582,6 +2643,10 @@ function initViewer() {
 
       if (isViewerModelsDockOpen && viewerModelsDockShell && !viewerModelsDockShell.contains(event.target)) {
         setViewerModelsDockOpen(false);
+      }
+
+      if (isViewerHelpDockOpen && viewerHelpDockShell && !viewerHelpDockShell.contains(event.target)) {
+        setViewerHelpDockOpen(false);
       }
     });
 
@@ -2597,11 +2662,16 @@ function initViewer() {
       if (isViewerModelsDockOpen) {
         setViewerModelsDockOpen(false);
       }
+
+      if (isViewerHelpDockOpen) {
+        setViewerHelpDockOpen(false);
+      }
     });
   }
 
   setViewerDockOpen(loadViewerDockStateFromStorage(), { persist: false });
   setViewerModelsDockOpen(loadViewerModelsDockStateFromStorage(), { persist: false });
+  setViewerHelpDockOpen(loadViewerHelpDockStateFromStorage(), { persist: false });
 
   setResetViewEnabled(false);
   setAutoRotation(false);

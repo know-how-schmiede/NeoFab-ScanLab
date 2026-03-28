@@ -464,6 +464,43 @@
   </section>
       </aside>
     </div>
+
+    <div id="viewer-help-dock-shell" class="viewer-dock-shell viewer-dock-shell--help">
+      <button
+        type="button"
+        id="viewer-help-dock-toggle"
+        class="viewer-dock-toggle"
+        aria-controls="viewer-help-dock"
+        aria-expanded="false"
+        title="Open viewer help"
+      >
+        Help
+      </button>
+      <aside
+        id="viewer-help-dock"
+        class="viewer-floating-dock viewer-floating-dock--help"
+        aria-label="Viewer help"
+        aria-hidden="true"
+      >
+        <section class="viewer-controls viewer-help-panel" aria-label="Viewer navigation help">
+          <h3>Viewer help</h3>
+          <ul class="viewer-help-list">
+            <li class="viewer-help-item">
+              <span class="viewer-help-key">LMB</span>
+              <span>Rotate model</span>
+            </li>
+            <li class="viewer-help-item">
+              <span class="viewer-help-key">Wheel</span>
+              <span>Zoom</span>
+            </li>
+            <li class="viewer-help-item">
+              <span class="viewer-help-key">RMB</span>
+              <span>Pan view</span>
+            </li>
+          </ul>
+        </section>
+      </aside>
+    </div>
   </div>
 </section>
 {% endblock %}
