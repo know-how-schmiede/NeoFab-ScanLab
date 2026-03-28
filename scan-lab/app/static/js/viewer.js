@@ -1099,6 +1099,17 @@ function initViewer() {
     return Number.isFinite(numericValue) ? numericValue : fallback;
   }
 
+  function buildCanvasFont(styleDeclaration, fallbackSize, scale) {
+    const fontSize = (styleDeclaration ? parsePixelValue(styleDeclaration.fontSize, fallbackSize) : fallbackSize) * scale;
+    const fontStyle = styleDeclaration ? styleDeclaration.fontStyle || "normal" : "normal";
+    const fontWeight = styleDeclaration ? styleDeclaration.fontWeight || "400" : "400";
+    const fontFamily = styleDeclaration
+      ? styleDeclaration.fontFamily || "Segoe UI, Tahoma, Geneva, Verdana, sans-serif"
+      : "Segoe UI, Tahoma, Geneva, Verdana, sans-serif";
+
+    return `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+  }
+
   function drawRoundedRectPath(context, x, y, width, height, radius) {
     const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
     context.beginPath();
@@ -1112,6 +1123,99 @@ function initViewer() {
     context.lineTo(x, y + safeRadius);
     context.quadraticCurveTo(x, y, x + safeRadius, y);
     context.closePath();
+  }
+
+  function drawBoundingBoxDimensionsOnScreenshot(context, canvasWidth, canvasHeight) {
+    if (!container || !boundingBoxDimensionsLayer) {
+      return;
+    }
+
+    if (!isBoundingBoxDimensionsVisible || boundingBoxDimensionsLayer.hidden) {
+      return;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    if (containerRect.width <= 0 || containerRect.height <= 0) {
+      return;
+    }
+
+    const scaleX = canvasWidth / containerRect.width;
+    const scaleY = canvasHeight / containerRect.height;
+    const scale = Math.min(scaleX, scaleY);
+
+    Object.values(boundingBoxDimensionLabels).forEach((labelEntry) => {
+      if (!labelEntry || !labelEntry.element || !labelEntry.valueElement || labelEntry.element.hidden) {
+        return;
+      }
+
+      const labelElement = labelEntry.element;
+      const labelRect = labelElement.getBoundingClientRect();
+      if (labelRect.width <= 0 || labelRect.height <= 0) {
+        return;
+      }
+
+      const labelStyle = window.getComputedStyle(labelElement);
+      const labelX = (labelRect.left - containerRect.left) * scaleX;
+      const labelY = (labelRect.top - containerRect.top) * scaleY;
+      const labelWidth = labelRect.width * scaleX;
+      const labelHeight = labelRect.height * scaleY;
+      const labelRadius = parsePixelValue(labelStyle.borderTopLeftRadius, labelRect.height / 2) * scale;
+      const labelBorderWidth = parsePixelValue(labelStyle.borderTopWidth, 0);
+
+      context.save();
+      drawRoundedRectPath(context, labelX, labelY, labelWidth, labelHeight, labelRadius);
+      context.fillStyle = labelStyle.backgroundColor || "rgba(16, 26, 43, 0.86)";
+      context.fill();
+
+      if (labelBorderWidth > 0) {
+        context.lineWidth = Math.max(1, labelBorderWidth * scale);
+        context.strokeStyle = labelStyle.borderColor || "rgba(255, 255, 255, 0.22)";
+        context.stroke();
+      }
+      context.restore();
+
+      const axisElement = labelElement.querySelector(".viewer-bbox-dimension-axis");
+      if (axisElement) {
+        const axisRect = axisElement.getBoundingClientRect();
+        if (axisRect.width > 0 && axisRect.height > 0) {
+          const axisStyle = window.getComputedStyle(axisElement);
+          const axisX = (axisRect.left - containerRect.left) * scaleX;
+          const axisY = (axisRect.top - containerRect.top) * scaleY;
+          const axisWidth = axisRect.width * scaleX;
+          const axisHeight = axisRect.height * scaleY;
+          const axisRadius = parsePixelValue(axisStyle.borderTopLeftRadius, axisRect.height / 2) * scale;
+          const axisText = axisElement.textContent ? axisElement.textContent.trim() : "";
+
+          context.save();
+          drawRoundedRectPath(context, axisX, axisY, axisWidth, axisHeight, axisRadius);
+          context.fillStyle = axisStyle.backgroundColor || "#ff8a00";
+          context.fill();
+          context.font = buildCanvasFont(axisStyle, 11, scale);
+          context.fillStyle = axisStyle.color || "#f9fcff";
+          context.textAlign = "center";
+          context.textBaseline = "middle";
+          context.fillText(axisText, axisX + axisWidth * 0.5, axisY + axisHeight * 0.5);
+          context.restore();
+        }
+      }
+
+      const valueText = labelEntry.valueElement.textContent ? labelEntry.valueElement.textContent.trim() : "";
+      const valueRect = labelEntry.valueElement.getBoundingClientRect();
+      if (valueText && valueRect.width > 0 && valueRect.height > 0) {
+        const valueStyle = window.getComputedStyle(labelEntry.valueElement);
+        const valueX = (valueRect.left - containerRect.left) * scaleX;
+        const valueY = (valueRect.top - containerRect.top) * scaleY;
+        const valueHeight = valueRect.height * scaleY;
+
+        context.save();
+        context.font = buildCanvasFont(valueStyle, 12, scale);
+        context.fillStyle = valueStyle.color || labelStyle.color || "#f7fbff";
+        context.textAlign = "left";
+        context.textBaseline = "middle";
+        context.fillText(valueText, valueX, valueY + valueHeight * 0.5);
+        context.restore();
+      }
+    });
   }
 
   function drawModelInfoOverlayOnScreenshot(context, canvasWidth, canvasHeight) {
@@ -1222,6 +1326,13 @@ function initViewer() {
     }
 
     try {
+      if (isBoundingBoxVisible) {
+        syncBoundingBoxHelper();
+      }
+      if (isBoundingBoxDimensionsVisible) {
+        syncBoundingBoxDimensionLabels();
+      }
+
       renderer.render(scene, camera);
       const sourceCanvas = renderer.domElement;
       if (sourceCanvas.width <= 0 || sourceCanvas.height <= 0) {
@@ -1237,6 +1348,7 @@ function initViewer() {
       }
 
       exportContext.drawImage(sourceCanvas, 0, 0, exportCanvas.width, exportCanvas.height);
+      drawBoundingBoxDimensionsOnScreenshot(exportContext, exportCanvas.width, exportCanvas.height);
       drawModelInfoOverlayOnScreenshot(exportContext, exportCanvas.width, exportCanvas.height);
 
       const imageDataUrl = exportCanvas.toDataURL("image/png");

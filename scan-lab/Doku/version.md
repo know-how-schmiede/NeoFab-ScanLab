@@ -15,6 +15,10 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.5.4 (2026-03-28)
+- Projektversion auf `0.5.4` erhoeht.
+- Viewer: PNG-Export uebernimmt jetzt auch sichtbare Abmessungen der Bounding-Box.
+
 ## 0.5.3 (2026-03-24)
 - Projektversion auf `0.5.3` erhoeht.
 - Viewer: Groessen-Presets fuer das Viewer-Fenster hinzugefuegt.
