@@ -1,41 +1,60 @@
-﻿# Featureliste Viewer
+# Featureliste Viewer
 
-Status: `[ ]` offen, `[x]` integriert
-Sortierung: von oben nach unten nach Prioritaet und Umsetzbarkeit
+Status: `[ ]` offen, `[X]` integriert
+Sortierung: zuerst aktueller Stand, danach offene Themen
 
-## 1) Hohe Prioritaet, schnell umsetzbar
+## 1) Bereits integriert
 
-- [X] Upload-Button + Drag-and-Drop fuer lokale STL/GLB Dateien
-- [ ] Ladeindikator mit Prozentanzeige beim Modellimport
+- [X] Sample-Model-Erkennung aus `sample_models/`
+- [X] Upload-Button + Drag-and-Drop fuer lokale STL/GLB/GLTF/OBJ/PLY/3MF Dateien
+- [X] GLB/GLTF-Unterstuetzung fuer Web-Modelle
+- [X] OBJ- und PLY-Import fuer Mesh-Dateien
+- [X] Robuster 3MF-Import inkl. Projektdateien mit ausgelagerten `3D/Objects/*.model`
+- [X] Statuszeile mit 3MF-spezifischen Fehlermeldungen
 - [X] Anzeige von Modellinfos (Dateigroesse, Bounding Box, Dreiecksanzahl)
-- [X] Achsen-Helfer (AxisHelper) als ein/aus Schalter
-- [X] Wireframe/Solid Umschalter fuer schnelle Geometriepruefung
+- [X] Bounding Box ein/aus schaltbar
+- [X] Dimensionen der Bounding Box anzeigen
+- [X] Persistenz der Bounding-Box-Dimensionen beim Modellwechsel
 - [X] Screenshot-Export als PNG aus aktueller Kameraposition
-- [ ] Viewer-Shortcuts (Reset, Rotation, Grid) ueber Tastatur
-- [ ] Persistenz der letzten Viewer-Einstellungen (localStorage)
+- [X] Bounding-Box-Dimensionen im PNG-Export mit ausgeben
+- [X] Achsen-Helfer (AxisHelper) als ein/aus Schalter
+- [X] Grid-Schalter
+- [X] Wireframe/Solid-Umschalter fuer schnelle Geometriepruefung
+- [X] Flat-/Smooth-Shading-Umschalter
+- [X] Lichtprofile (Studio, Technical, High Contrast) als Presets
+- [X] Viewer-Groessen-Presets (Compact, Standard, Large)
+- [X] Farb-Presets, Custom Color und Reset
 - [X] Color-Auswahl als Favorit speichern
-- [X] "Home"-Icon für Standart-Ansicht zurücksetzen
-- [X] Persistenz der Color-Favoriten incl. Löschen der Color-Favoriten
-- [X] Tooltip Anzeige für Buttons im Viewer
-- [X] Dimension Bounding Box anzeigen
+- [X] Color-Favoriten loeschen
+- [X] Persistenz der Color-Favoriten via localStorage
+- [X] "Home"-Icon fuer Reset auf Standard-Ansicht
+- [X] Auto-Rotation
+- [X] Face Selection fuer Modellflaechen
+- [X] Objekt auf ausgewaehlter Flaeche auf Grundebene ablegen
+- [X] Bounding Box an Weltachsen ausrichten
+- [X] Tooltip-Anzeige fuer Buttons im Viewer
+- [X] Ausklappbares Controls-Dock rechts
+- [X] Ausklappbares Models-Dock links
+- [X] Persistenz der Dock-Zustaende via localStorage
 
-## 2) Hohe Prioritaet, mittlere Umsetzbarkeit
+## 2) Hohe Prioritaet, offen
 
-- [ ] Unterstuetzung fuer GLB/GLTF inklusive Material-Handling
+- [ ] Ladeindikator mit Prozentanzeige beim Modellimport
+- [ ] Viewer-Shortcuts (Reset, Rotation, Grid) ueber Tastatur
 - [ ] Einheiten- und Skalierungsoptionen (mm/cm/m) pro Modell
-- [ ] Multi-File Szene: mehrere Modelle gleichzeitig laden und ein/ausblenden
-- [ ] Strukturierte Fehlermeldungen (Dateiformat, Parse-Fehler, fehlende Datei)
+- [ ] Allgemeinere strukturierte Fehlermeldungen fuer alle Dateiformate
 - [ ] Clipping-Plane (Schnittansicht) fuer Innenansicht
 - [ ] Fit-to-Selection fuer einzelne Objekte bei Mehrmodell-Szenen
 
-## 3) Mittlere Prioritaet, mittlere bis hohe Umsetzbarkeit
+## 3) Mittlere Prioritaet, offen
 
+- [ ] Multi-File-Szene: mehrere Modelle gleichzeitig laden und ein/ausblenden
 - [ ] Messwerkzeug fuer Distanz zwischen zwei Punkten
 - [ ] Marker/Annotationen direkt im Modell speichern
 - [ ] Kamera-Presets (Front/Top/Left/Isometric) inkl. benutzerdefinierter Speicherplaetze
-- [X] Lichtprofile (Studio, Technical, High Contrast) als Presets
 - [ ] Export/Import der Viewer-Sitzung (JSON mit Kamera + Sichtbarkeit + Farben)
-- [X] Objekt auf ausgewählter Fläche auf Grundebene ablegen
+- [ ] FBX-Import
+- [ ] Erweiterte Material- und Eigenschaften-Unterstuetzung fuer komplexe 3MF-Dateien
 
 ## 4) Strategische Features, hoher Aufwand
 

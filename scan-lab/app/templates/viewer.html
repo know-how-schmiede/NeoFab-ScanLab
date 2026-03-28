@@ -9,7 +9,25 @@
     Select a sample model from <code>sample_models/</code> or load a local STL/GLB/GLTF/OBJ/PLY/3MF file.
   </p>
 
-  <section class="model-list">
+  <div class="viewer-workspace">
+    <div id="viewer-models-dock-shell" class="viewer-dock-shell viewer-dock-shell--left">
+      <button
+        type="button"
+        id="viewer-models-dock-toggle"
+        class="viewer-dock-toggle viewer-dock-toggle--left"
+        aria-controls="viewer-models-dock"
+        aria-expanded="false"
+        title="Open sample models"
+      >
+        Models
+      </button>
+      <aside
+        id="viewer-models-dock"
+        class="viewer-floating-dock viewer-floating-dock--left"
+        aria-label="Detected sample models"
+        aria-hidden="true"
+      >
+        <section class="model-list">
     <h3>Detected sample models</h3>
     {% if models %}
     <ul class="model-grid">
@@ -31,9 +49,12 @@
     {% else %}
     <p>No supported model files found in <code>sample_models/</code>.</p>
     {% endif %}
-  </section>
+        </section>
+      </aside>
+    </div>
 
-  <section class="viewer-controls" aria-label="Local model upload controls">
+    <div class="viewer-workspace-main">
+      <section class="viewer-controls" aria-label="Local model upload controls">
     <h3>Local model upload</h3>
     <div class="viewer-control-row">
       <button
@@ -64,7 +85,7 @@
     </div>
   </section>
 
-  <div id="viewer-container" class="viewer-container viewer-container--standard">
+      <div id="viewer-container" class="viewer-container viewer-container--standard">
     <aside id="viewer-model-info" class="viewer-model-info" aria-label="Model information">
       <h4>Model info</h4>
       <dl>
@@ -283,10 +304,28 @@
         </svg>
       </button>
     </div>
-  </div>
-  <p id="viewer-status" class="viewer-status">Viewer initializing...</p>
+      </div>
+      <p id="viewer-status" class="viewer-status">Viewer initializing...</p>
+    </div>
 
-  <section class="viewer-controls" aria-label="Model color controls">
+    <div id="viewer-dock-shell" class="viewer-dock-shell">
+      <button
+        type="button"
+        id="viewer-dock-toggle"
+        class="viewer-dock-toggle"
+        aria-controls="viewer-floating-dock"
+        aria-expanded="false"
+        title="Open appearance controls"
+      >
+        Controls
+      </button>
+      <aside
+        id="viewer-floating-dock"
+        class="viewer-floating-dock"
+        aria-label="Viewer appearance controls"
+        aria-hidden="true"
+      >
+      <section class="viewer-controls" aria-label="Model color controls">
     <h3>Model color</h3>
     <div class="viewer-control-row">
       <label for="model-color-input">Custom color</label>
@@ -358,7 +397,7 @@
     </div>
   </section>
 
-  <section class="viewer-controls" aria-label="Lighting profile controls">
+      <section class="viewer-controls" aria-label="Lighting profile controls">
     <h3>Lighting profile</h3>
     <div class="lighting-presets" role="group" aria-label="Lighting presets">
       <button
@@ -391,7 +430,7 @@
     </div>
   </section>
 
-  <section class="viewer-controls" aria-label="Viewer size controls">
+      <section class="viewer-controls" aria-label="Viewer size controls">
     <h3>Viewer size</h3>
     <div class="viewer-size-presets" role="group" aria-label="Viewer size presets">
       <button
@@ -423,6 +462,9 @@
       </button>
     </div>
   </section>
+      </aside>
+    </div>
+  </div>
 </section>
 {% endblock %}
 

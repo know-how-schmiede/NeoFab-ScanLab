@@ -36,6 +36,12 @@ const modelInfoPanel = document.getElementById("viewer-model-info");
 const modelInfoFileSize = document.getElementById("model-info-file-size");
 const modelInfoBounds = document.getElementById("model-info-bounds");
 const modelInfoTriangles = document.getElementById("model-info-triangles");
+const viewerDockShell = document.getElementById("viewer-dock-shell");
+const viewerDockToggleButton = document.getElementById("viewer-dock-toggle");
+const viewerFloatingDock = document.getElementById("viewer-floating-dock");
+const viewerModelsDockShell = document.getElementById("viewer-models-dock-shell");
+const viewerModelsDockToggleButton = document.getElementById("viewer-models-dock-toggle");
+const viewerModelsFloatingDock = document.getElementById("viewer-models-dock");
 
 const DEFAULT_MODEL_COLOR = "#8aa2c8";
 const DEFAULT_LIGHT_PROFILE = "studio";
@@ -45,6 +51,8 @@ const BOUNDING_BOX_DIMENSION_LABEL_OFFSET = 18;
 const BOUNDING_BOX_ANCHOR_HYSTERESIS = 0.12;
 const SUPPORTED_LOCAL_EXTENSIONS = new Set(["stl", "glb", "gltf", "obj", "ply", "3mf"]);
 const COLOR_FAVORITES_STORAGE_KEY = "scanlab.viewer.favorite_colors.v1";
+const VIEWER_DOCK_OPEN_STORAGE_KEY = "scanlab.viewer.appearance_dock_open.v1";
+const VIEWER_MODELS_DOCK_OPEN_STORAGE_KEY = "scanlab.viewer.sample_models_dock_open.v1";
 const FACE_GROUND_TARGET_NORMAL = new THREE.Vector3(0, -1, 0);
 const VIEWER_SIZE_PRESETS = {
   compact: { label: "Compact" },
@@ -256,6 +264,8 @@ function initViewer() {
     colorPresetButtons.map((button) => normalizeHexColor(button.dataset.color)).filter(Boolean)
   );
   let favoritePresetColors = [];
+  let isViewerDockOpen = false;
+  let isViewerModelsDockOpen = false;
 
   function setResetViewEnabled(isEnabled) {
     if (!resetViewButton) {
@@ -263,6 +273,106 @@ function initViewer() {
     }
 
     resetViewButton.disabled = !isEnabled;
+  }
+
+  function loadViewerDockStateFromStorage() {
+    if (typeof localStorage === "undefined") {
+      return false;
+    }
+
+    try {
+      return localStorage.getItem(VIEWER_DOCK_OPEN_STORAGE_KEY) === "1";
+    } catch (error) {
+      console.warn("Unable to read viewer dock state from localStorage.", error);
+      return false;
+    }
+  }
+
+  function persistViewerDockState() {
+    if (typeof localStorage === "undefined") {
+      return;
+    }
+
+    try {
+      localStorage.setItem(VIEWER_DOCK_OPEN_STORAGE_KEY, isViewerDockOpen ? "1" : "0");
+    } catch (error) {
+      console.warn("Unable to persist viewer dock state to localStorage.", error);
+    }
+  }
+
+  function setViewerDockOpen(nextState, { persist = true } = {}) {
+    isViewerDockOpen = Boolean(nextState);
+
+    if (viewerDockShell) {
+      viewerDockShell.classList.toggle("is-open", isViewerDockOpen);
+    }
+
+    if (viewerFloatingDock) {
+      viewerFloatingDock.setAttribute("aria-hidden", String(!isViewerDockOpen));
+    }
+
+    if (viewerDockToggleButton) {
+      const nextLabel = isViewerDockOpen ? "Close" : "Controls";
+      const nextTitle = isViewerDockOpen ? "Close appearance controls" : "Open appearance controls";
+      viewerDockToggleButton.textContent = nextLabel;
+      viewerDockToggleButton.setAttribute("aria-expanded", String(isViewerDockOpen));
+      viewerDockToggleButton.setAttribute("aria-label", nextTitle);
+      viewerDockToggleButton.title = nextTitle;
+    }
+
+    if (persist) {
+      persistViewerDockState();
+    }
+  }
+
+  function loadViewerModelsDockStateFromStorage() {
+    if (typeof localStorage === "undefined") {
+      return false;
+    }
+
+    try {
+      return localStorage.getItem(VIEWER_MODELS_DOCK_OPEN_STORAGE_KEY) === "1";
+    } catch (error) {
+      console.warn("Unable to read viewer models dock state from localStorage.", error);
+      return false;
+    }
+  }
+
+  function persistViewerModelsDockState() {
+    if (typeof localStorage === "undefined") {
+      return;
+    }
+
+    try {
+      localStorage.setItem(VIEWER_MODELS_DOCK_OPEN_STORAGE_KEY, isViewerModelsDockOpen ? "1" : "0");
+    } catch (error) {
+      console.warn("Unable to persist viewer models dock state to localStorage.", error);
+    }
+  }
+
+  function setViewerModelsDockOpen(nextState, { persist = true } = {}) {
+    isViewerModelsDockOpen = Boolean(nextState);
+
+    if (viewerModelsDockShell) {
+      viewerModelsDockShell.classList.toggle("is-open", isViewerModelsDockOpen);
+    }
+
+    if (viewerModelsFloatingDock) {
+      viewerModelsFloatingDock.setAttribute("aria-hidden", String(!isViewerModelsDockOpen));
+    }
+
+    if (viewerModelsDockToggleButton) {
+      const nextLabel = isViewerModelsDockOpen ? "Close" : "Models";
+      const nextTitle = isViewerModelsDockOpen ? "Close sample models" : "Open sample models";
+      viewerModelsDockToggleButton.textContent = nextLabel;
+      viewerModelsDockToggleButton.setAttribute("aria-expanded", String(isViewerModelsDockOpen));
+      viewerModelsDockToggleButton.setAttribute("aria-label", nextTitle);
+      viewerModelsDockToggleButton.title = nextTitle;
+    }
+
+    if (persist) {
+      persistViewerModelsDockState();
+    }
   }
 
   function storeCurrentViewAsDefault() {
@@ -2451,6 +2561,47 @@ function initViewer() {
       setModelInfoVisibility(!isModelInfoVisible);
     });
   }
+
+  if (viewerDockToggleButton) {
+    viewerDockToggleButton.addEventListener("click", () => {
+      setViewerDockOpen(!isViewerDockOpen);
+    });
+  }
+
+  if (viewerModelsDockToggleButton) {
+    viewerModelsDockToggleButton.addEventListener("click", () => {
+      setViewerModelsDockOpen(!isViewerModelsDockOpen);
+    });
+  }
+
+  if ((viewerDockShell || viewerModelsDockShell) && typeof document !== "undefined") {
+    document.addEventListener("click", (event) => {
+      if (isViewerDockOpen && viewerDockShell && !viewerDockShell.contains(event.target)) {
+        setViewerDockOpen(false);
+      }
+
+      if (isViewerModelsDockOpen && viewerModelsDockShell && !viewerModelsDockShell.contains(event.target)) {
+        setViewerModelsDockOpen(false);
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      if (isViewerDockOpen) {
+        setViewerDockOpen(false);
+      }
+
+      if (isViewerModelsDockOpen) {
+        setViewerModelsDockOpen(false);
+      }
+    });
+  }
+
+  setViewerDockOpen(loadViewerDockStateFromStorage(), { persist: false });
+  setViewerModelsDockOpen(loadViewerModelsDockStateFromStorage(), { persist: false });
 
   setResetViewEnabled(false);
   setAutoRotation(false);

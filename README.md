@@ -1,6 +1,5 @@
 # NeoFab-ScanLab
-A simple Flask-based web viewer for 3D scan data using three.js.  This project demonstrates how 3D scan meshes (e.g. from Revopoint scanners) can be displayed interactively inside a web browser.
-The viewer supports modern web-friendly formats such as GLB / GLTF and is intended as an experimental prototype before integrating the functionality into the NeoFab Maker platform.
+A Flask-based web viewer for 3D scan and mesh data using three.js. The project started as a lightweight GLB/GLTF prototype and has evolved into an interactive browser viewer for scan meshes, CAD exports, and slicer-oriented 3D files.
 
 ![Scan-Lab Dialog and Viewer](/images/24-03-2026_12-07-55.jpg)
 
@@ -8,41 +7,62 @@ The viewer supports modern web-friendly formats such as GLB / GLTF and is intend
 
 The purpose of this repository is to explore and prototype:
 
-- Displaying 3D scan data in the browser
-- Using three.js as a lightweight viewer
+- Displaying 3D scan and mesh data directly in the browser
+- Using three.js as a lightweight viewer and inspection layer
 - Serving models via Python + Flask
 - Preparing scan meshes for web visualization
-- Evaluating performance for large scan datasets
+- Evaluating performance for larger scan datasets
+- Building a technical foundation for later NeoFab Maker integration
 
-This demo project will later serve as the technical foundation for a NeoFab plugin.
+## Current Viewer Capabilities
 
-## Features (Planned)
+### Model Loading
 
-Current and upcoming features:
+- Automatic discovery and loading of sample models from `sample_models/`
+- Local upload and drag-and-drop for `STL`, `GLB`, `glTF`, `OBJ`, `PLY`, and `3MF`
+- Robust 3MF import, including project-style packages with external `3D/Objects/*.model` files
+- Status line feedback for loading, format issues, and 3MF-specific parse errors
 
-### Viewer
+### Inspection and Positioning
 
-- Interactive 3D viewer (three.js)
-- Mouse navigation (rotate / zoom / pan)
-- Automatic camera positioning
-- Scene lighting
-- Grid and axis helper
-- Responsive viewer layout
+- Automatic camera framing and reset-to-default view
+- Model info overlay with file size, bounding box, and triangle count
+- Bounding box display with optional dimension labels
+- PNG screenshot export, including visible bounding-box dimensions
+- Face selection, "place model on selected face", and bounding-box axis alignment
+- Grid, axes, wireframe, model info, auto-rotation, and smooth/flat shading toggles
 
-### File Handling
+### Appearance and Layout
 
-- Serve local GLB models
-- Load models dynamically via Flask routes
-- Support for large meshes (scan datasets)
+- Custom model color, preset colors, reset, and favorite colors stored in `localStorage`
+- Lighting presets: `Studio`, `Technical`, and `High Contrast`
+- Viewer size presets: `Compact`, `Standard`, and `Large`
+- Right-side slide-out controls dock for color, lighting, and viewer size
+- Left-side slide-out models dock for sample-model selection
 
-### Future Features
+## Supported 3D Formats
 
-- File upload
-- Mesh preview generation
-- Mesh decimation / optimization
-- Scan metadata display
-- Thumbnail generation
-- Model comparison (scan vs CAD)
+| Format | Status | Notes |
+| --- | --- | --- |
+| `GLB` | Supported | Recommended single-file format for browser viewing |
+| `glTF` | Supported | Works best as a self-contained asset set; `GLB` remains the most robust local-upload option |
+| `STL` | Supported | Standard triangle-mesh import |
+| `OBJ` | Supported | Standard mesh import |
+| `PLY` | Supported | Mesh PLY with faces; point-only clouds are currently not supported |
+| `3MF` | Supported | Mesh 3MF and project-style multi-part packages; loaded with flat shading by default |
+
+Formats not yet covered in the current viewer: `FBX`.
+
+## Roadmap / Open Topics
+
+- Load progress indicator with percentage feedback
+- Keyboard shortcuts for common viewer actions
+- Units and scaling options per model
+- Multi-model scene handling
+- Clipping plane / sectional view
+- Measurement and annotation tools
+- Session export/import
+- Scan-vs-CAD comparison workflows
 
 ## Technology Stack
 
@@ -60,19 +80,6 @@ Current and upcoming features:
 
 - trimesh
 - MeshLab / Blender pipeline
-
-## Supported 3D Formats
-
-Recommended format for web visualization:
-
-Format	Purpose
-GLB	Primary web format
-GLTF	Alternative web format
-STL	Import only
-PLY	Scan data
-OBJ	Import possible
-
-For best performance, models should be converted to GLB and optionally simplified before viewing.
 
 ## Debian 13 / Proxmox LXC Deployment
 
