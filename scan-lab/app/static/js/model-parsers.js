@@ -563,6 +563,8 @@ function normalizeThreeMfArchivePath(pathValue) {
   return pathValue.replace(/\\/g, "/").replace(/^\/+/, "").trim();
 }
 
+const THREE_MF_PRODUCTION_NAMESPACE = "http://schemas.microsoft.com/3dmanufacturing/production/2015/06";
+
 function readThreeMfArchiveEntries(arrayBuffer) {
   if (!(arrayBuffer instanceof ArrayBuffer) || arrayBuffer.byteLength <= 0) {
     throw new Error("3MF data is empty.");
@@ -647,22 +649,68 @@ function resolveThreeMfModelPath(archiveEntries) {
   throw new Error("3MF archive does not contain a .model part.");
 }
 
-function readThreeMfModelDocument(arrayBuffer) {
-  const archiveEntries = readThreeMfArchiveEntries(arrayBuffer);
-  const modelPath = resolveThreeMfModelPath(archiveEntries);
-  const modelEntry = archiveEntries.get(modelPath);
+function resolveThreeMfReferencePath(referencePath, baseModelPath = "") {
+  if (typeof referencePath !== "string" || referencePath.trim() === "") {
+    return "";
+  }
+
+  const rawReference = referencePath.trim();
+  const normalizedReference = normalizeThreeMfArchivePath(rawReference);
+  if (!normalizedReference) {
+    return "";
+  }
+
+  if (rawReference.startsWith("/")) {
+    return normalizedReference;
+  }
+
+  const basePath = normalizeThreeMfArchivePath(baseModelPath);
+  const resolvedSegments = basePath ? basePath.split("/").slice(0, -1) : [];
+  normalizedReference.split("/").forEach((segment) => {
+    if (!segment || segment === ".") {
+      return;
+    }
+
+    if (segment === "..") {
+      if (resolvedSegments.length > 0) {
+        resolvedSegments.pop();
+      }
+      return;
+    }
+
+    resolvedSegments.push(segment);
+  });
+
+  return resolvedSegments.join("/");
+}
+
+function getThreeMfComponentReferencePath(componentNode, currentModelPath) {
+  const rawPath =
+    componentNode.getAttributeNS(THREE_MF_PRODUCTION_NAMESPACE, "path") ||
+    componentNode.getAttribute("p:path") ||
+    componentNode.getAttribute("path") ||
+    "";
+  const resolvedPath = resolveThreeMfReferencePath(rawPath, currentModelPath);
+  return resolvedPath || currentModelPath;
+}
+
+function readThreeMfModelDocumentFromArchive(archiveEntries, modelPath) {
+  const normalizedModelPath = normalizeThreeMfArchivePath(modelPath);
+  const modelEntry = archiveEntries.get(normalizedModelPath);
   if (!modelEntry) {
-    throw new Error(`3MF model part ${modelPath} is missing from the archive.`);
+    throw new Error(`3MF model part ${normalizedModelPath} is missing from the archive.`);
   }
 
   const modelXml = strFromU8(modelEntry);
-  const modelDocument = parseXmlDocument(modelXml, "3MF model");
-  const modelNode = getElementChildren(modelDocument).find((element) => element.localName === "model") || modelDocument.documentElement;
+  const modelDocument = parseXmlDocument(modelXml, `3MF model ${normalizedModelPath}`);
+  const modelNode =
+    getElementChildren(modelDocument).find((element) => element.localName === "model") ||
+    modelDocument.documentElement;
   if (!modelNode || modelNode.localName !== "model") {
-    throw new Error("3MF archive does not contain a valid model element.");
+    throw new Error(`3MF model part ${normalizedModelPath} does not contain a valid model element.`);
   }
 
-  return { modelDocument, modelNode };
+  return { modelPath: normalizedModelPath, modelDocument, modelNode };
 }
 
 function parseThreeMfNumericAttribute(node, attributeName) {
@@ -787,29 +835,9 @@ function createThreeMfMesh(meshNode, colorHex) {
   return new THREE.Mesh(finalizedGeometry, createSurfaceMaterial(colorHex));
 }
 
-export function inspectThreeMfArrayBuffer(arrayBuffer) {
-  const { modelNode } = readThreeMfModelDocument(arrayBuffer);
-  const directElementNames = new Set(
-    Array.from(modelNode.getElementsByTagName("*")).map((element) => element.localName)
-  );
-
-  return {
-    hasDisplayResources:
-      directElementNames.has("basematerials") ||
-      directElementNames.has("colorgroup") ||
-      directElementNames.has("texture2dgroup") ||
-      directElementNames.has("texture2d") ||
-      directElementNames.has("pbmetallicdisplayproperties"),
-  };
-}
-
-export function createThreeMfObjectFromArrayBuffer(arrayBuffer, colorHex) {
-  const { modelNode } = readThreeMfModelDocument(arrayBuffer);
+function buildThreeMfModelContext(archiveEntries, modelPath) {
+  const { modelPath: normalizedModelPath, modelNode } = readThreeMfModelDocumentFromArchive(archiveEntries, modelPath);
   const resourcesNode = getFirstDirectChildByLocalName(modelNode, "resources");
-  if (!resourcesNode) {
-    throw new Error("3MF model does not contain any resources.");
-  }
-
   const objectNodes = new Map();
   getDirectChildrenByLocalName(resourcesNode, "object").forEach((objectNode) => {
     const objectId = objectNode.getAttribute("id");
@@ -818,23 +846,86 @@ export function createThreeMfObjectFromArrayBuffer(arrayBuffer, colorHex) {
     }
   });
 
-  if (objectNodes.size === 0) {
+  const buildNode = getFirstDirectChildByLocalName(modelNode, "build");
+  const buildItemNodes = getDirectChildrenByLocalName(buildNode, "item");
+  const elementNames = new Set(Array.from(modelNode.getElementsByTagName("*")).map((element) => element.localName));
+  let hasExternalComponentPaths = false;
+  Array.from(modelNode.getElementsByTagName("*")).forEach((element) => {
+    if (element.localName !== "component") {
+      return;
+    }
+
+    const componentPath = getThreeMfComponentReferencePath(element, normalizedModelPath);
+    if (componentPath && componentPath !== normalizedModelPath) {
+      hasExternalComponentPaths = true;
+    }
+  });
+
+  return {
+    modelPath: normalizedModelPath,
+    modelNode,
+    objectNodes,
+    buildItemNodes,
+    unitScale: getThreeMfUnitScaleToMillimeter(modelNode.getAttribute("unit")),
+    elementNames,
+    hasExternalComponentPaths,
+  };
+}
+
+function getThreeMfModelContext(modelContexts, archiveEntries, modelPath) {
+  const resolvedModelPath = normalizeThreeMfArchivePath(modelPath);
+  if (modelContexts.has(resolvedModelPath)) {
+    return modelContexts.get(resolvedModelPath);
+  }
+
+  const context = buildThreeMfModelContext(archiveEntries, resolvedModelPath);
+  modelContexts.set(context.modelPath, context);
+  return context;
+}
+
+export function inspectThreeMfArrayBuffer(arrayBuffer) {
+  const archiveEntries = readThreeMfArchiveEntries(arrayBuffer);
+  const rootModelPath = resolveThreeMfModelPath(archiveEntries);
+  const rootModelContext = buildThreeMfModelContext(archiveEntries, rootModelPath);
+  const modelPartCount = Array.from(archiveEntries.keys()).filter((entryPath) => /\.model$/i.test(entryPath)).length;
+
+  return {
+    hasDisplayResources:
+      rootModelContext.elementNames.has("basematerials") ||
+      rootModelContext.elementNames.has("colorgroup") ||
+      rootModelContext.elementNames.has("texture2dgroup") ||
+      rootModelContext.elementNames.has("texture2d") ||
+      rootModelContext.elementNames.has("pbmetallicdisplayproperties"),
+    hasExternalModelParts: modelPartCount > 1 || rootModelContext.hasExternalComponentPaths,
+    modelPartCount,
+  };
+}
+
+export function createThreeMfObjectFromArrayBuffer(arrayBuffer, colorHex) {
+  const archiveEntries = readThreeMfArchiveEntries(arrayBuffer);
+  const rootModelPath = resolveThreeMfModelPath(archiveEntries);
+  const modelContexts = new Map();
+  const rootModelContext = getThreeMfModelContext(modelContexts, archiveEntries, rootModelPath);
+
+  if (rootModelContext.objectNodes.size === 0) {
     throw new Error("3MF model does not contain any objects.");
   }
 
   const builtObjects = new Map();
-  const buildObjectById = (objectId, ancestry = []) => {
-    if (builtObjects.has(objectId)) {
-      return builtObjects.get(objectId);
+  const buildObjectByReference = (modelPath, objectId, ancestry = []) => {
+    const modelContext = getThreeMfModelContext(modelContexts, archiveEntries, modelPath);
+    const objectKey = `${modelContext.modelPath}#${objectId}`;
+    if (builtObjects.has(objectKey)) {
+      return builtObjects.get(objectKey);
     }
 
-    const objectNode = objectNodes.get(objectId);
+    const objectNode = modelContext.objectNodes.get(objectId);
     if (!objectNode) {
-      throw new Error(`3MF references missing object ${objectId}.`);
+      throw new Error(`3MF references missing object ${objectId} in ${modelContext.modelPath}.`);
     }
 
-    if (ancestry.includes(objectId)) {
-      throw new Error(`3MF contains a circular object reference for ${objectId}.`);
+    if (ancestry.includes(objectKey)) {
+      throw new Error(`3MF contains a circular object reference for ${objectKey}.`);
     }
 
     const meshNode = getFirstDirectChildByLocalName(objectNode, "mesh");
@@ -846,17 +937,25 @@ export function createThreeMfObjectFromArrayBuffer(arrayBuffer, colorHex) {
       const componentsNode = getFirstDirectChildByLocalName(objectNode, "components");
       const componentNodes = getDirectChildrenByLocalName(componentsNode, "component");
       if (componentNodes.length === 0) {
-        throw new Error(`3MF object ${objectId} does not contain a supported mesh or components.`);
+        throw new Error(`3MF object ${objectKey} does not contain a supported mesh or components.`);
       }
 
       object3d = new THREE.Group();
       componentNodes.forEach((componentNode) => {
         const componentObjectId = componentNode.getAttribute("objectid");
         if (!componentObjectId) {
-          throw new Error(`3MF object ${objectId} contains a component without objectid.`);
+          throw new Error(`3MF object ${objectKey} contains a component without objectid.`);
         }
 
-        const componentObject = buildObjectById(componentObjectId, [...ancestry, objectId]).clone(true);
+        const componentModelPath = getThreeMfComponentReferencePath(componentNode, modelContext.modelPath);
+        const componentObject = buildObjectByReference(componentModelPath, componentObjectId, [...ancestry, objectKey]).clone(true);
+        const componentModelContext = getThreeMfModelContext(modelContexts, archiveEntries, componentModelPath);
+        const unitRatio = componentModelContext.unitScale / modelContext.unitScale;
+        if (Number.isFinite(unitRatio) && unitRatio > 0 && Math.abs(unitRatio - 1) > 1e-12) {
+          componentObject.scale.multiplyScalar(unitRatio);
+          componentObject.updateMatrixWorld(true);
+        }
+
         const transform = parseThreeMfTransform(componentNode.getAttribute("transform"));
         if (transform) {
           componentObject.applyMatrix4(transform);
@@ -871,22 +970,20 @@ export function createThreeMfObjectFromArrayBuffer(arrayBuffer, colorHex) {
       object3d.name = objectName;
     }
 
-    builtObjects.set(objectId, object3d);
+    builtObjects.set(objectKey, object3d);
     return object3d;
   };
 
   const rootGroup = new THREE.Group();
-  const buildNode = getFirstDirectChildByLocalName(modelNode, "build");
-  const itemNodes = getDirectChildrenByLocalName(buildNode, "item");
 
-  if (itemNodes.length > 0) {
-    itemNodes.forEach((itemNode) => {
+  if (rootModelContext.buildItemNodes.length > 0) {
+    rootModelContext.buildItemNodes.forEach((itemNode) => {
       const objectId = itemNode.getAttribute("objectid");
       if (!objectId) {
         throw new Error("3MF build item is missing objectid.");
       }
 
-      const itemObject = buildObjectById(objectId).clone(true);
+      const itemObject = buildObjectByReference(rootModelContext.modelPath, objectId).clone(true);
       const transform = parseThreeMfTransform(itemNode.getAttribute("transform"));
       if (transform) {
         itemObject.applyMatrix4(transform);
@@ -894,18 +991,17 @@ export function createThreeMfObjectFromArrayBuffer(arrayBuffer, colorHex) {
 
       rootGroup.add(itemObject);
     });
-  } else if (objectNodes.size === 1) {
-    const [onlyObjectId] = objectNodes.keys();
-    rootGroup.add(buildObjectById(onlyObjectId).clone(true));
+  } else if (rootModelContext.objectNodes.size === 1) {
+    const [onlyObjectId] = rootModelContext.objectNodes.keys();
+    rootGroup.add(buildObjectByReference(rootModelContext.modelPath, onlyObjectId).clone(true));
   } else {
-    objectNodes.forEach((_, objectId) => {
-      rootGroup.add(buildObjectById(objectId).clone(true));
+    rootModelContext.objectNodes.forEach((_, objectId) => {
+      rootGroup.add(buildObjectByReference(rootModelContext.modelPath, objectId).clone(true));
     });
   }
 
-  const unitScale = getThreeMfUnitScaleToMillimeter(modelNode.getAttribute("unit"));
-  if (unitScale !== 1) {
-    rootGroup.scale.setScalar(unitScale);
+  if (rootModelContext.unitScale !== 1) {
+    rootGroup.scale.setScalar(rootModelContext.unitScale);
   }
 
   rootGroup.updateMatrixWorld(true);

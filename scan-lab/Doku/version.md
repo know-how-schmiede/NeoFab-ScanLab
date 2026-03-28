@@ -15,6 +15,16 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.6.5 (2026-03-28)
+- Projektversion auf `0.6.5` erhoeht.
+- Viewer: Mehrteilige 3MF-Projektdateien mit ausgelagerten `3D/Objects/*.model`-Dateien werden jetzt unterstuetzt.
+- Viewer: Statuszeile kennzeichnet mehrteilige 3MF-Dateien und zeigt bei 3MF-Fehlern den konkreten Grund an.
+## 0.6.4 (2026-03-28)
+- Projektversion auf `0.6.4` erhoeht.
+- Viewer: 3MF-Dateien werden standardmaessig mit Flat Shading geladen; Smooth Shading bleibt optional ueber den Toggle aktivierbar.
+## 0.6.3 (2026-03-28)
+- Projektversion auf `0.6.3` erhoeht.
+- Viewer: 3MF-Fallback verwendet jetzt geknickte Normalen, damit scharfe Kanten nicht weichgezogen erscheinen.
 ## 0.6.2 (2026-03-28)
 - Projektversion auf `0.6.2` erhoeht.
 - Viewer: 3MF-Import robuster gemacht, inklusive Fallback fuer mesh-basierte Dateien mit unvollstaendigen Materialreferenzen.

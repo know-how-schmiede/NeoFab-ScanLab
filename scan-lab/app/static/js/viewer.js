@@ -24,6 +24,7 @@ const boundingBoxToggleButton = document.getElementById("viewer-toggle-bounding-
 const boundingBoxDimensionsToggleButton = document.getElementById("viewer-toggle-bbox-dimensions");
 const rotationToggleButton = document.getElementById("viewer-toggle-rotation");
 const gridToggleButton = document.getElementById("viewer-toggle-grid");
+const surfaceShadingToggleButton = document.getElementById("viewer-toggle-surface-shading");
 const axesToggleButton = document.getElementById("viewer-toggle-axes");
 const wireframeToggleButton = document.getElementById("viewer-toggle-wireframe");
 const screenshotExportButton = document.getElementById("viewer-export-screenshot");
@@ -241,6 +242,9 @@ function initViewer() {
   let defaultViewState = null;
   let isAutoRotationEnabled = false;
   let isGridVisible = true;
+  let isSurfaceShadingEnabled = true;
+  let surfaceShadingPreferenceEnabled = true;
+  let currentModelExtension = "";
   let isAxesVisible = true;
   let isWireframeEnabled = false;
   let isModelInfoVisible = true;
@@ -346,6 +350,54 @@ function initViewer() {
       nextState ? "Hide axes" : "Show axes"
     );
     axesToggleButton.title = nextState ? "Hide axes" : "Show axes";
+  }
+
+  function setSurfaceShadingEnabled(enabled, { persistPreference = true } = {}) {
+    const nextState = Boolean(enabled);
+    isSurfaceShadingEnabled = nextState;
+
+    if (persistPreference) {
+      surfaceShadingPreferenceEnabled = nextState;
+    }
+
+    if (currentModelObject) {
+      const updatedMaterials = new Set();
+      currentModelObject.traverse((node) => {
+        if (!node.isMesh) {
+          return;
+        }
+
+        const materials = Array.isArray(node.material) ? node.material : [node.material];
+        materials.forEach((material) => {
+          if (!material || updatedMaterials.has(material) || !("flatShading" in material)) {
+            return;
+          }
+
+          updatedMaterials.add(material);
+          if (material.userData.scanLabSmoothShadingFlatShading === undefined) {
+            material.userData.scanLabSmoothShadingFlatShading = currentModelExtension === "3mf" ? false : Boolean(material.flatShading);
+          }
+
+          const targetFlatShading = nextState ? material.userData.scanLabSmoothShadingFlatShading : true;
+          if (material.flatShading !== targetFlatShading) {
+            material.flatShading = targetFlatShading;
+            material.needsUpdate = true;
+          }
+        });
+      });
+    }
+
+    if (!surfaceShadingToggleButton) {
+      return;
+    }
+
+    surfaceShadingToggleButton.classList.toggle("is-toggled", nextState);
+    surfaceShadingToggleButton.setAttribute("aria-pressed", String(nextState));
+    surfaceShadingToggleButton.setAttribute(
+      "aria-label",
+      nextState ? "Disable smooth shading" : "Enable smooth shading"
+    );
+    surfaceShadingToggleButton.title = nextState ? "Disable smooth shading" : "Enable smooth shading";
   }
 
   function setWireframeMode(enabled) {
@@ -1885,15 +1937,19 @@ function initViewer() {
     return renderableMeshCount > 0;
   }
 
-  function parseThreeMfObject(buffer) {
+  function parseThreeMfObject(buffer, modelName = "") {
     const inspection = inspectThreeMfArrayBuffer(buffer);
-    const useOfficialLoader = inspection.hasDisplayResources;
+    const useOfficialLoader = inspection.hasDisplayResources && !inspection.hasExternalModelParts;
+
+    if (inspection.hasExternalModelParts && modelName) {
+      setStatus(`Loading ${modelName} ... detected project-style multi-part 3MF package.`);
+    }
 
     if (useOfficialLoader) {
       try {
         const loadedObject = prepareThreeMfObject(threeMfLoader.parse(buffer));
         if (hasRenderableGeometry(loadedObject)) {
-          return loadedObject;
+          return { object3d: loadedObject, inspection };
         }
 
         console.warn("3MF loader returned no renderable geometry. Falling back to simplified parser.");
@@ -1907,7 +1963,7 @@ function initViewer() {
       throw new Error("3MF does not contain any renderable geometry.");
     }
 
-    return fallbackObject;
+    return { object3d: fallbackObject, inspection };
   }
 
   async function fetchModelArrayBuffer(modelUrl) {
@@ -1928,9 +1984,10 @@ function initViewer() {
     return response.text();
   }
 
-  function finalizeLoadedModel(object3d, modelName, { sourceButton = null, fileSizeBytes = null } = {}) {
+  function finalizeLoadedModel(object3d, modelName, { sourceButton = null, fileSizeBytes = null, statusMessage = null } = {}) {
     disposeCurrentModel({ preserveBoundingBoxDimensionsVisibility: true });
     currentModelObject = object3d;
+    currentModelExtension = getFileExtension(modelName);
     currentModelFileSizeBytes = fileSizeBytes;
     scene.add(currentModelObject);
     setAlignBoundingBoxEnabled(true);
@@ -1940,8 +1997,10 @@ function initViewer() {
     syncBoundingBoxDimensionLabels();
 
     const metrics = getModelMetrics(currentModelObject);
+    const initialSurfaceShadingEnabled = currentModelExtension === "3mf" ? false : surfaceShadingPreferenceEnabled;
     frameObject(currentModelObject);
     applyModelColor(`#${currentModelColor.getHexString()}`);
+    setSurfaceShadingEnabled(initialSurfaceShadingEnabled, { persistPreference: false });
     setWireframeMode(isWireframeEnabled);
     updateModelInfoPanel({
       fileSizeBytes: currentModelFileSizeBytes,
@@ -1949,7 +2008,7 @@ function initViewer() {
       triangleCount: metrics.triangleCount,
     });
     setActiveButton(sourceButton);
-    setStatus(`Loaded ${modelName}.`);
+    setStatus(statusMessage || `Loaded ${modelName}.`);
   }
 
   function loadModel(modelUrl, modelName, sourceButton, fileSizeBytes = null) {
@@ -2030,12 +2089,16 @@ function initViewer() {
     if (extension === "3mf") {
       void fetchModelArrayBuffer(modelUrl)
         .then((buffer) => {
-          const object3d = parseThreeMfObject(buffer);
-          finalizeLoadedModel(object3d, modelName, { sourceButton, fileSizeBytes });
+          const { object3d, inspection } = parseThreeMfObject(buffer, modelName);
+          const statusMessage = inspection.hasExternalModelParts
+            ? `Loaded ${modelName} (project-style multi-part 3MF).`
+            : null;
+          finalizeLoadedModel(object3d, modelName, { sourceButton, fileSizeBytes, statusMessage });
         })
         .catch((error) => {
           console.error("3MF model load failed.", error);
-          setStatus(`Failed to load ${modelName}.`, true);
+          const details = error instanceof Error && error.message ? ` ${error.message}` : "";
+          setStatus(`Failed to load ${modelName}.${details}`, true);
         });
       return;
     }
@@ -2087,8 +2150,11 @@ function initViewer() {
       }
 
       if (extension === "3mf") {
-        const object3d = parseThreeMfObject(buffer);
-        finalizeLoadedModel(object3d, file.name, { fileSizeBytes: file.size });
+        const { object3d, inspection } = parseThreeMfObject(buffer, file.name);
+        const statusMessage = inspection.hasExternalModelParts
+          ? `Loaded ${file.name} (project-style multi-part 3MF).`
+          : null;
+        finalizeLoadedModel(object3d, file.name, { fileSizeBytes: file.size, statusMessage });
         return;
       }
 
@@ -2108,6 +2174,12 @@ function initViewer() {
           `Failed to load ${file.name}. Local .gltf works only when buffers and textures are embedded; otherwise use .glb.`,
           true
         );
+        return;
+      }
+
+      if (extension === "3mf") {
+        const details = error instanceof Error && error.message ? ` ${error.message}` : "";
+        setStatus(`Failed to load ${file.name}.${details}`, true);
         return;
       }
 
@@ -2348,6 +2420,14 @@ function initViewer() {
     });
   }
 
+  if (surfaceShadingToggleButton) {
+    surfaceShadingToggleButton.addEventListener("click", () => {
+      const nextState = !isSurfaceShadingEnabled;
+      setSurfaceShadingEnabled(nextState, { persistPreference: currentModelExtension !== "3mf" });
+      setStatus(nextState ? "Smooth shading enabled." : "Flat shading enabled.");
+    });
+  }
+
   if (axesToggleButton) {
     axesToggleButton.addEventListener("click", () => {
       setAxesVisibility(!isAxesVisible);
@@ -2375,6 +2455,7 @@ function initViewer() {
   setResetViewEnabled(false);
   setAutoRotation(false);
   setGridVisibility(true);
+  setSurfaceShadingEnabled(surfaceShadingPreferenceEnabled, { persistPreference: false });
   setAxesVisibility(true);
   setWireframeMode(false);
   setModelInfoVisibility(true);
