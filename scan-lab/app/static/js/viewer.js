@@ -1141,7 +1141,7 @@ function initViewer() {
     refreshFaceSelectionMarker();
     setPlaceOnSelectedFaceEnabled(true);
     setFaceSelectionEnabled(false);
-    setStatus("Plane defined from 3 selected points. Click 'Place model on selected plane'.");
+    setStatus("Plane defined from 3 selected points. Click 'Place model on selected surface'.");
     return true;
   }
   function pickFaceFromClientPosition(clientX, clientY) {
@@ -1408,7 +1408,7 @@ function initViewer() {
 
   function placeModelOnSelectedFace() {
     if (!currentModelObject) {
-      setStatus("Load a model before placing it on a selected plane.", true);
+      setStatus("Load a model before placing it on a selected surface.", true);
       return;
     }
 
@@ -1438,7 +1438,7 @@ function initViewer() {
     refreshModelMetricsAndView();
     clearSelectedFace();
     setFaceSelectionEnabled(false);
-    setStatus("Model placed on selected plane, aligned, and centered on the ground plane.");
+    setStatus("Model placed on selected surface, aligned, and centered on the ground plane.");
   }
 
   function buildScreenshotFilename() {

@@ -142,6 +142,18 @@ body {
   gap: 0.45rem;
 }
 
+.viewer-icon-toolbar-top-center {
+  top: 0.8rem;
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: fit-content;
+  max-width: min(calc(100% - 13rem), 28rem);
+}
+
 .viewer-icon-toolbar-bottom-left {
   top: auto;
   right: auto;
@@ -759,6 +771,13 @@ body {
   .viewer-icon-toolbar {
     top: 0.55rem;
     right: 0.55rem;
+  }
+
+  .viewer-icon-toolbar-top-center {
+    top: 0.55rem;
+    right: auto;
+    left: 50%;
+    max-width: calc(100% - 8rem);
   }
 
   .viewer-icon-toolbar-bottom-left {

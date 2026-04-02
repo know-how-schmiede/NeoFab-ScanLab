@@ -120,36 +120,6 @@
       </button>
       <button
         type="button"
-        id="viewer-toggle-face-selection"
-        class="viewer-icon-button"
-        aria-label="Enable face selection"
-        title="Enable face selection"
-        aria-pressed="false"
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <circle cx="12" cy="12" r="6"></circle>
-          <path d="M12 3v3"></path>
-          <path d="M12 18v3"></path>
-          <path d="M3 12h3"></path>
-          <path d="M18 12h3"></path>
-        </svg>
-      </button>
-      <button
-        type="button"
-        id="viewer-place-on-selected-face"
-        class="viewer-icon-button"
-        aria-label="Place model on selected plane"
-        title="Place model on selected plane"
-        disabled
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path d="M12 4v10"></path>
-          <path d="m8 11 4 4 4-4"></path>
-          <path d="M4 20h16"></path>
-        </svg>
-      </button>
-      <button
-        type="button"
         id="viewer-align-bbox-axes"
         class="viewer-icon-button"
         aria-label="Align bounding box to axes"
@@ -204,6 +174,42 @@
           <circle cx="12" cy="12" r="8"></circle>
           <path d="M12 10v6"></path>
           <path d="M12 7h.01"></path>
+        </svg>
+      </button>
+    </div>
+    <div
+      class="viewer-icon-toolbar viewer-icon-toolbar-top-center"
+      role="group"
+      aria-label="Surface alignment tools"
+    >
+      <button
+        type="button"
+        id="viewer-toggle-face-selection"
+        class="viewer-icon-button"
+        aria-label="Enable face selection"
+        title="Enable face selection"
+        aria-pressed="false"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="6"></circle>
+          <path d="M12 3v3"></path>
+          <path d="M12 18v3"></path>
+          <path d="M3 12h3"></path>
+          <path d="M18 12h3"></path>
+        </svg>
+      </button>
+      <button
+        type="button"
+        id="viewer-place-on-selected-face"
+        class="viewer-icon-button"
+        aria-label="Place model on selected surface"
+        title="Place model on selected surface"
+        disabled
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M12 4v10"></path>
+          <path d="m8 11 4 4 4-4"></path>
+          <path d="M4 20h16"></path>
         </svg>
       </button>
     </div>
