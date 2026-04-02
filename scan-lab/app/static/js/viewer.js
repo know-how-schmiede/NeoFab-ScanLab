@@ -1011,16 +1011,16 @@ function initViewer() {
     );
     positionBoundingBoxDimensionLabel(
       boundingBoxDimensionLabels.y,
-      formatDimension(size.y),
-      new THREE.Vector3(anchorX, bounds.min.y, anchorZ),
-      new THREE.Vector3(anchorX, bounds.max.y, anchorZ),
+      formatDimension(size.z),
+      new THREE.Vector3(anchorX, anchorY, bounds.min.z),
+      new THREE.Vector3(anchorX, anchorY, bounds.max.z),
       centerScreenPoint
     );
     positionBoundingBoxDimensionLabel(
       boundingBoxDimensionLabels.z,
-      formatDimension(size.z),
-      new THREE.Vector3(anchorX, anchorY, bounds.min.z),
-      new THREE.Vector3(anchorX, anchorY, bounds.max.z),
+      formatDimension(size.y),
+      new THREE.Vector3(anchorX, bounds.min.y, anchorZ),
+      new THREE.Vector3(anchorX, bounds.max.y, anchorZ),
       centerScreenPoint
     );
   }
@@ -2085,8 +2085,8 @@ function initViewer() {
     if (modelInfoBounds) {
       if (boundingBoxSize) {
         modelInfoBounds.textContent =
-          `${formatDimension(boundingBoxSize.x)} x ${formatDimension(boundingBoxSize.y)} x ${formatDimension(
-            boundingBoxSize.z
+          `${formatDimension(boundingBoxSize.x)} x ${formatDimension(boundingBoxSize.z)} x ${formatDimension(
+            boundingBoxSize.y
           )}`;
       } else {
         modelInfoBounds.textContent = "n/a";

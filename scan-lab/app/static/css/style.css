@@ -283,6 +283,10 @@ body {
   will-change: left, top;
 }
 
+
+.viewer-bbox-dimension-value {
+  color: inherit;
+}
 .viewer-bbox-dimensions[hidden],
 .viewer-bbox-dimension-label[hidden] {
   display: none !important;
@@ -299,15 +303,30 @@ body {
 }
 
 .viewer-bbox-dimension-label[data-axis="x"] .viewer-bbox-dimension-axis {
-  background: #ff8a00;
-}
-
-.viewer-bbox-dimension-label[data-axis="y"] .viewer-bbox-dimension-axis {
   background: #2d8cff;
 }
 
-.viewer-bbox-dimension-label[data-axis="z"] .viewer-bbox-dimension-axis {
+.viewer-bbox-dimension-label[data-axis="y"] .viewer-bbox-dimension-axis {
   background: #27a96c;
+}
+
+.viewer-bbox-dimension-label[data-axis="z"] .viewer-bbox-dimension-axis {
+  background: #ff5b5b;
+}
+
+.viewer-bbox-dimension-label[data-axis="x"] {
+  border-color: rgba(45, 140, 255, 0.42);
+  color: #dcecff;
+}
+
+.viewer-bbox-dimension-label[data-axis="y"] {
+  border-color: rgba(39, 169, 108, 0.42);
+  color: #dcf7ea;
+}
+
+.viewer-bbox-dimension-label[data-axis="z"] {
+  border-color: rgba(255, 91, 91, 0.42);
+  color: #ffe0e0;
 }
 .viewer-axis-labels {
   position: absolute;

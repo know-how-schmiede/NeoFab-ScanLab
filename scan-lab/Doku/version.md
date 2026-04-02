@@ -15,6 +15,11 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.7.5 (2026-04-02)
+- Projektversion auf `0.7.5` erhoeht.
+- Viewer: Farbzuordnung der Bounding-Box-Abmessungen an die Achsenfarben angepasst (`X` blau, `Y` gruen, `Z` rot).
+- Viewer: Bounding-Box-Abmessungslabels farblich an die Achsenbeschriftung angeglichen.
+
 ## 0.7.4 (2026-04-02)
 - Projektversion auf `0.7.4` erhoeht.
 - Viewer: Surface-Alignment um plane-spezifische Buttons fuer XY, XZ und YZ erweitert.
