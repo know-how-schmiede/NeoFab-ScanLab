@@ -322,6 +322,8 @@ function initViewer() {
   let currentModelObject = null;
   let currentModelFileSizeBytes = null;
   let currentModelBoundingBoxHelper = null;
+  const currentModelBoundingBox = new THREE.Box3();
+  let isCurrentModelBoundingBoxDirty = true;
   let selectedFaceSamples = [];
   let selectedFaceNormalWorld = null;
   let faceSelectionMarker = null;
@@ -785,18 +787,53 @@ function initViewer() {
     currentModelBoundingBoxHelper = null;
   }
 
+  function computePreciseObjectBounds(object3d, targetBox = new THREE.Box3()) {
+    if (!object3d) {
+      return targetBox.makeEmpty();
+    }
+
+    object3d.updateMatrixWorld(true);
+    return targetBox.setFromObject(object3d, true);
+  }
+
+  function markCurrentModelBoundingBoxDirty() {
+    isCurrentModelBoundingBoxDirty = true;
+  }
+
+  function getCurrentModelBoundingBox({ force = false } = {}) {
+    if (!currentModelObject) {
+      currentModelBoundingBox.makeEmpty();
+      isCurrentModelBoundingBoxDirty = false;
+      return currentModelBoundingBox;
+    }
+
+    if (force || isCurrentModelBoundingBoxDirty || currentModelBoundingBox.isEmpty()) {
+      computePreciseObjectBounds(currentModelObject, currentModelBoundingBox);
+      isCurrentModelBoundingBoxDirty = false;
+    }
+
+    return currentModelBoundingBox;
+  }
+
   function syncBoundingBoxHelper() {
     if (!isBoundingBoxVisible || !currentModelObject) {
       removeBoundingBoxHelper();
       return;
     }
 
+    const bounds = getCurrentModelBoundingBox();
+    if (bounds.isEmpty()) {
+      removeBoundingBoxHelper();
+      return;
+    }
+
     if (!currentModelBoundingBoxHelper) {
-      currentModelBoundingBoxHelper = new THREE.BoxHelper(currentModelObject, 0xff8a00);
+      currentModelBoundingBoxHelper = new THREE.Box3Helper(bounds, 0xff8a00);
       scene.add(currentModelBoundingBoxHelper);
     }
 
-    currentModelBoundingBoxHelper.update();
+    currentModelBoundingBoxHelper.box = bounds;
+    currentModelBoundingBoxHelper.updateMatrixWorld(true);
   }
 
   function projectWorldPointToViewer(point) {
@@ -971,8 +1008,7 @@ function initViewer() {
       return;
     }
 
-    currentModelObject.updateMatrixWorld(true);
-    const bounds = new THREE.Box3().setFromObject(currentModelObject);
+    const bounds = getCurrentModelBoundingBox();
     if (bounds.isEmpty()) {
       hideBoundingBoxDimensionLabels();
       return;
@@ -1143,7 +1179,7 @@ function initViewer() {
     let markerLength = 22;
 
     if (currentModelObject) {
-      const bounds = new THREE.Box3().setFromObject(currentModelObject);
+      const bounds = getCurrentModelBoundingBox();
       if (!bounds.isEmpty()) {
         const size = bounds.getSize(new THREE.Vector3());
         const largestDimension = Math.max(size.x, size.y, size.z);
@@ -1356,8 +1392,7 @@ function initViewer() {
       return false;
     }
 
-    currentModelObject.updateMatrixWorld(true);
-    const bounds = new THREE.Box3().setFromObject(currentModelObject);
+    const bounds = getCurrentModelBoundingBox({ force: true });
     if (bounds.isEmpty()) {
       return false;
     }
@@ -1367,6 +1402,7 @@ function initViewer() {
     currentModelObject.position.z -= boundsCenter.z;
     currentModelObject.position.y -= bounds.min.y;
     currentModelObject.updateMatrixWorld(true);
+    markCurrentModelBoundingBoxDirty();
     return true;
   }
 
@@ -1397,8 +1433,7 @@ function initViewer() {
       return false;
     }
 
-    currentModelObject.updateMatrixWorld(true);
-    const bounds = new THREE.Box3().setFromObject(currentModelObject);
+    const bounds = getCurrentModelBoundingBox({ force: true });
     if (bounds.isEmpty()) {
       return false;
     }
@@ -1420,6 +1455,7 @@ function initViewer() {
       targetConfig.targetNormal.clone().multiplyScalar(-planeOffset)
     );
     currentModelObject.updateMatrixWorld(true);
+    markCurrentModelBoundingBoxDirty();
     return true;
   }
 
@@ -1428,17 +1464,25 @@ function initViewer() {
       return;
     }
 
-    const metrics = getModelMetrics(currentModelObject);
+    const bounds = getCurrentModelBoundingBox({ force: true });
+    const boundingBoxSize = bounds.isEmpty() ? null : bounds.getSize(new THREE.Vector3());
     updateModelInfoPanel({
       fileSizeBytes: currentModelFileSizeBytes,
-      boundingBoxSize: metrics.boundingBoxSize,
-      triangleCount: metrics.triangleCount,
+      boundingBoxSize,
+      triangleCount: countTrianglesInObject(currentModelObject),
     });
 
-    const bounds = new THREE.Box3().setFromObject(currentModelObject);
     if (!bounds.isEmpty()) {
       controls.target.copy(bounds.getCenter(new THREE.Vector3()));
       controls.update();
+    }
+
+    if (isBoundingBoxVisible) {
+      syncBoundingBoxHelper();
+    }
+
+    if (isBoundingBoxDimensionsVisible) {
+      syncBoundingBoxDimensionLabels();
     }
 
     storeCurrentViewAsDefault();
@@ -2066,7 +2110,7 @@ function initViewer() {
   }
 
   function getModelMetrics(object3d) {
-    const bounds = new THREE.Box3().setFromObject(object3d);
+    const bounds = computePreciseObjectBounds(object3d);
     if (bounds.isEmpty()) {
       return { boundingBoxSize: null, triangleCount: 0 };
     }
@@ -2448,6 +2492,8 @@ function initViewer() {
 
     resetBoundingBoxDimensionAnchors();
     removeBoundingBoxHelper();
+    currentModelBoundingBox.makeEmpty();
+    isCurrentModelBoundingBoxDirty = false;
     currentModelFileSizeBytes = null;
 
     if (!currentModelObject) {
@@ -2485,7 +2531,7 @@ function initViewer() {
   }
 
   function frameObject(object3d) {
-    const bounds = new THREE.Box3().setFromObject(object3d);
+    const bounds = computePreciseObjectBounds(object3d);
     if (bounds.isEmpty()) {
       return;
     }
@@ -2494,6 +2540,11 @@ function initViewer() {
     const center = bounds.getCenter(new THREE.Vector3());
 
     object3d.position.sub(center);
+    object3d.updateMatrixWorld(true);
+
+    if (object3d === currentModelObject) {
+      markCurrentModelBoundingBoxDirty();
+    }
 
     const maxSize = Math.max(size.x, size.y, size.z) || 1;
     const cameraDistance = maxSize * 1.8;
@@ -2605,23 +2656,17 @@ function initViewer() {
     currentModelExtension = getFileExtension(modelName);
     currentModelFileSizeBytes = fileSizeBytes;
     scene.add(currentModelObject);
+    markCurrentModelBoundingBoxDirty();
     setAlignBoundingBoxEnabled(true);
     setBoundingBoxToggleEnabled(true);
     setBoundingBoxDimensionsToggleEnabled(isBoundingBoxVisible);
-    syncBoundingBoxHelper();
-    syncBoundingBoxDimensionLabels();
 
-    const metrics = getModelMetrics(currentModelObject);
     const initialSurfaceShadingEnabled = currentModelExtension === "3mf" ? false : surfaceShadingPreferenceEnabled;
     frameObject(currentModelObject);
     applyModelColor(`#${currentModelColor.getHexString()}`);
     setSurfaceShadingEnabled(initialSurfaceShadingEnabled, { persistPreference: false });
     setWireframeMode(isWireframeEnabled);
-    updateModelInfoPanel({
-      fileSizeBytes: currentModelFileSizeBytes,
-      boundingBoxSize: metrics.boundingBoxSize,
-      triangleCount: metrics.triangleCount,
-    });
+    refreshModelMetricsAndView();
     setActiveButton(sourceButton);
     setStatus(statusMessage || `Loaded ${modelName}.`);
   }
