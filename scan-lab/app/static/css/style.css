@@ -309,6 +309,51 @@ body {
 .viewer-bbox-dimension-label[data-axis="z"] .viewer-bbox-dimension-axis {
   background: #27a96c;
 }
+.viewer-axis-labels {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.viewer-axis-label {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  padding: 0.16rem 0.38rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(16, 26, 43, 0.86);
+  color: #f7fbff;
+  box-shadow: 0 6px 18px rgba(16, 26, 43, 0.22);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  will-change: left, top;
+}
+
+.viewer-axis-labels[hidden],
+.viewer-axis-label[hidden] {
+  display: none !important;
+}
+
+.viewer-axis-label[data-axis="x"] {
+  background: #2d8cff;
+}
+
+.viewer-axis-label[data-axis="y"] {
+  background: #27a96c;
+}
+
+.viewer-axis-label[data-axis="z"] {
+  background: #ff5b5b;
+}
+
 .viewer-workspace {
   margin-top: 1.5rem;
   position: relative;
@@ -792,6 +837,12 @@ body {
     left: 0.55rem;
     min-width: 180px;
     padding: 0.5rem 0.55rem;
+  }
+
+  .viewer-axis-label {
+    font-size: 0.64rem;
+    min-width: 1.25rem;
+    padding: 0.14rem 0.32rem;
   }
 
   .viewer-bbox-dimension-label {

@@ -15,6 +15,11 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.7.4 (2026-04-02)
+- Projektversion auf `0.7.4` erhoeht.
+- Viewer: Surface-Alignment um plane-spezifische Buttons fuer XY, XZ und YZ erweitert.
+- Viewer: Die Ausrichtung auf eine ausgewaehlte Oberflaeche kann jetzt direkt auf XY-, XZ- oder YZ-Ebene erfolgen.
+
 ## 0.7.3 (2026-04-02)
 - Projektversion auf `0.7.3` erhoeht.
 - Viewer: Buttons fuer Face Selection und das Platzieren auf der ausgewaehlten Oberflaeche in eine eigene obere Mittelgruppe verschoben.

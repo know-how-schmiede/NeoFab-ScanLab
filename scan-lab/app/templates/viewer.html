@@ -201,15 +201,46 @@
       <button
         type="button"
         id="viewer-place-on-selected-face"
-        class="viewer-icon-button"
-        aria-label="Place model on selected surface"
-        title="Place model on selected surface"
+        class="viewer-icon-button viewer-place-on-selected-plane"
+        data-target-plane="xy"
+        aria-label="Place model on XY plane"
+        title="Place model on XY plane"
+        disabled
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <rect x="7" y="4" width="10" height="10"></rect>
+          <path d="M12 14v6"></path>
+          <path d="m8 17 4 3 4-3"></path>
+        </svg>
+      </button>
+      <button
+        type="button"
+        id="viewer-place-on-selected-plane-xz"
+        class="viewer-icon-button viewer-place-on-selected-plane"
+        data-target-plane="xz"
+        aria-label="Place model on XZ plane"
+        title="Place model on XZ plane"
         disabled
       >
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M12 4v10"></path>
           <path d="m8 11 4 4 4-4"></path>
           <path d="M4 20h16"></path>
+        </svg>
+      </button>
+      <button
+        type="button"
+        id="viewer-place-on-selected-plane-yz"
+        class="viewer-icon-button viewer-place-on-selected-plane"
+        data-target-plane="yz"
+        aria-label="Place model on YZ plane"
+        title="Place model on YZ plane"
+        disabled
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M20 12H10"></path>
+          <path d="m13 8-4 4 4 4"></path>
+          <path d="M4 4v16"></path>
         </svg>
       </button>
     </div>
@@ -267,7 +298,8 @@
           <path d="M4 10h16"></path>
           <path d="M10 4v16"></path>
         </svg>
-      </button>      <button
+      </button>
+      <button
         type="button"
         id="viewer-toggle-surface-shading"
         class="viewer-icon-button"
@@ -293,6 +325,23 @@
           <path d="M5 19h14"></path>
           <path d="M5 19V5"></path>
           <path d="M5 19l10-10"></path>
+        </svg>
+      </button>
+      <button
+        type="button"
+        id="viewer-toggle-axes-labels"
+        class="viewer-icon-button"
+        aria-label="Show axis labels"
+        title="Show axis labels"
+        aria-pressed="false"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M5 19h14"></path>
+          <path d="M5 19V5"></path>
+          <path d="M5 19l10-10"></path>
+          <rect x="2.75" y="2.75" width="2.5" height="2.5"></rect>
+          <rect x="17.75" y="16.75" width="2.5" height="2.5"></rect>
+          <rect x="17.75" y="2.75" width="2.5" height="2.5"></rect>
         </svg>
       </button>
       <button

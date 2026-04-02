@@ -18,7 +18,7 @@ let lightingPresetButtons = Array.from(document.querySelectorAll(".lighting-pres
 let viewerSizePresetButtons = Array.from(document.querySelectorAll(".viewer-size-preset"));
 const resetViewButton = document.getElementById("viewer-reset-view");
 const faceSelectionToggleButton = document.getElementById("viewer-toggle-face-selection");
-const placeOnSelectedFaceButton = document.getElementById("viewer-place-on-selected-face");
+const placeOnSelectedPlaneButtons = Array.from(document.querySelectorAll(".viewer-place-on-selected-plane"));
 const alignBoundingBoxAxesButton = document.getElementById("viewer-align-bbox-axes");
 const boundingBoxToggleButton = document.getElementById("viewer-toggle-bounding-box");
 const boundingBoxDimensionsToggleButton = document.getElementById("viewer-toggle-bbox-dimensions");
@@ -26,6 +26,7 @@ const rotationToggleButton = document.getElementById("viewer-toggle-rotation");
 const gridToggleButton = document.getElementById("viewer-toggle-grid");
 const surfaceShadingToggleButton = document.getElementById("viewer-toggle-surface-shading");
 const axesToggleButton = document.getElementById("viewer-toggle-axes");
+const axesLabelsToggleButton = document.getElementById("viewer-toggle-axes-labels");
 const wireframeToggleButton = document.getElementById("viewer-toggle-wireframe");
 const screenshotExportButton = document.getElementById("viewer-export-screenshot");
 const modelInfoToggleButton = document.getElementById("viewer-toggle-model-info");
@@ -52,12 +53,38 @@ const DEFAULT_VIEWER_SIZE = "standard";
 const AUTO_ROTATE_SPEED = 1.6;
 const BOUNDING_BOX_DIMENSION_LABEL_OFFSET = 18;
 const BOUNDING_BOX_ANCHOR_HYSTERESIS = 0.12;
+const AXES_HELPER_LENGTH = 90;
+const AXES_LABEL_SCREEN_OFFSET = 16;
+const AXIS_COLORS = {
+  x: 0x2d8cff,
+  y: 0x27a96c,
+  z: 0xff5b5b,
+};
 const SUPPORTED_LOCAL_EXTENSIONS = new Set(["stl", "glb", "gltf", "obj", "ply", "3mf"]);
 const COLOR_FAVORITES_STORAGE_KEY = "scanlab.viewer.favorite_colors.v1";
 const VIEWER_DOCK_OPEN_STORAGE_KEY = "scanlab.viewer.appearance_dock_open.v1";
 const VIEWER_MODELS_DOCK_OPEN_STORAGE_KEY = "scanlab.viewer.sample_models_dock_open.v1";
 const VIEWER_HELP_DOCK_OPEN_STORAGE_KEY = "scanlab.viewer.help_dock_open.v1";
-const FACE_GROUND_TARGET_NORMAL = new THREE.Vector3(0, -1, 0);
+const SURFACE_ALIGNMENT_TARGETS = {
+  xy: {
+    label: "XY plane",
+    targetNormal: new THREE.Vector3(0, -1, 0),
+    offsetAxis: "y",
+    centerAxes: ["x", "z"],
+  },
+  xz: {
+    label: "XZ plane",
+    targetNormal: new THREE.Vector3(0, 0, 1),
+    offsetAxis: "z",
+    centerAxes: ["x", "y"],
+  },
+  yz: {
+    label: "YZ plane",
+    targetNormal: new THREE.Vector3(-1, 0, 0),
+    offsetAxis: "x",
+    centerAxes: ["y", "z"],
+  },
+};
 const VIEWER_SIZE_PRESETS = {
   compact: { label: "Compact" },
   standard: { label: "Standard" },
@@ -188,6 +215,49 @@ function createBoundingBoxDimensionElements(hostElement) {
   hostElement.appendChild(layer);
   return { layer, labels };
 }
+function createAxisLabelElements(hostElement) {
+  if (!hostElement || typeof document === "undefined") {
+    return { layer: null, labels: {} };
+  }
+
+  const layer = document.createElement("div");
+  layer.className = "viewer-axis-labels";
+  layer.setAttribute("aria-hidden", "true");
+  layer.hidden = true;
+
+  const labels = {};
+  ["x", "y", "z"].forEach((axis) => {
+    const label = document.createElement("div");
+    label.className = "viewer-axis-label";
+    label.dataset.axis = axis;
+    label.textContent = axis.toUpperCase();
+    label.hidden = true;
+    layer.appendChild(label);
+    labels[axis] = { element: label };
+  });
+
+  hostElement.appendChild(layer);
+  return { layer, labels };
+}
+
+
+function createViewerAxesHelper(length = AXES_HELPER_LENGTH) {
+  const axesGroup = new THREE.Group();
+  const basis = new THREE.Matrix4().makeBasis(
+    new THREE.Vector3(1, 0, 0),
+    new THREE.Vector3(0, 0, -1),
+    new THREE.Vector3(0, 1, 0)
+  );
+  axesGroup.setRotationFromMatrix(basis);
+
+  const headLength = length * 0.16;
+  const headWidth = length * 0.08;
+  axesGroup.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), length, AXIS_COLORS.x, headLength, headWidth));
+  axesGroup.add(new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), length, AXIS_COLORS.y, headLength, headWidth));
+  axesGroup.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), length, AXIS_COLORS.z, headLength, headWidth));
+
+  return axesGroup;
+}
 
 function initViewer() {
   if (!container || !statusElement) {
@@ -216,6 +286,11 @@ function initViewer() {
     labels: boundingBoxDimensionLabels,
   } = createBoundingBoxDimensionElements(container);
 
+  const {
+    layer: axisLabelsLayer,
+    labels: axisLabels,
+  } = createAxisLabelElements(container);
+
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.autoRotate = false;
@@ -237,7 +312,7 @@ function initViewer() {
   const grid = new THREE.GridHelper(220, 22, 0x8ea4c5, 0xc6d4ea);
   scene.add(grid);
 
-  const axes = new THREE.AxesHelper(90);
+  const axes = createViewerAxesHelper(AXES_HELPER_LENGTH);
   scene.add(axes);
 
   const stlLoader = new STLLoader();
@@ -259,6 +334,7 @@ function initViewer() {
   let surfaceShadingPreferenceEnabled = true;
   let currentModelExtension = "";
   let isAxesVisible = true;
+  let isAxesLabelsVisible = false;
   let isWireframeEnabled = false;
   let isModelInfoVisible = true;
   let isBoundingBoxVisible = false;
@@ -500,10 +576,51 @@ function initViewer() {
     gridToggleButton.title = nextState ? "Hide grid" : "Show grid";
   }
 
+  function hideAxesLabels() {
+    if (axisLabelsLayer) {
+      axisLabelsLayer.hidden = true;
+    }
+
+    Object.values(axisLabels).forEach((labelEntry) => {
+      if (labelEntry && labelEntry.element) {
+        labelEntry.element.hidden = true;
+      }
+    });
+  }
+
+  function setAxesLabelsVisibility(visible) {
+    const nextState = Boolean(visible);
+    isAxesLabelsVisible = nextState;
+
+    if (nextState) {
+      syncAxesLabels();
+    } else {
+      hideAxesLabels();
+    }
+
+    if (!axesLabelsToggleButton) {
+      return;
+    }
+
+    axesLabelsToggleButton.classList.toggle("is-toggled", nextState);
+    axesLabelsToggleButton.setAttribute("aria-pressed", String(nextState));
+    axesLabelsToggleButton.setAttribute(
+      "aria-label",
+      nextState ? "Hide axis labels" : "Show axis labels"
+    );
+    axesLabelsToggleButton.title = nextState ? "Hide axis labels" : "Show axis labels";
+  }
+
   function setAxesVisibility(visible) {
     const nextState = Boolean(visible);
     isAxesVisible = nextState;
     axes.visible = nextState;
+
+    if (nextState) {
+      syncAxesLabels();
+    } else {
+      hideAxesLabels();
+    }
 
     if (!axesToggleButton) {
       return;
@@ -706,6 +823,69 @@ function initViewer() {
     };
   }
 
+  function positionAxisLabel(labelEntry, worldPoint, originScreenPoint) {
+    if (!labelEntry || !labelEntry.element) {
+      return;
+    }
+
+    const endScreenPoint = projectWorldPointToViewer(worldPoint);
+    if (!endScreenPoint || !endScreenPoint.isVisible) {
+      labelEntry.element.hidden = true;
+      return;
+    }
+
+    let offsetX = 0;
+    let offsetY = -1;
+    if (originScreenPoint) {
+      const deltaX = endScreenPoint.x - originScreenPoint.x;
+      const deltaY = endScreenPoint.y - originScreenPoint.y;
+      const deltaLength = Math.hypot(deltaX, deltaY);
+      if (deltaLength > 1e-3) {
+        offsetX = deltaX / deltaLength;
+        offsetY = deltaY / deltaLength;
+      }
+    }
+
+    if (axisLabelsLayer) {
+      axisLabelsLayer.hidden = false;
+    }
+
+    labelEntry.element.style.left = `${Math.round(endScreenPoint.x + offsetX * AXES_LABEL_SCREEN_OFFSET)}px`;
+    labelEntry.element.style.top = `${Math.round(endScreenPoint.y + offsetY * AXES_LABEL_SCREEN_OFFSET)}px`;
+    labelEntry.element.hidden = false;
+  }
+
+  function syncAxesLabels() {
+    if (!isAxesLabelsVisible || !isAxesVisible || !axisLabelsLayer) {
+      hideAxesLabels();
+      return;
+    }
+
+    axes.updateMatrixWorld(true);
+    const originWorldPoint = axes.localToWorld(new THREE.Vector3(0, 0, 0));
+    const originScreenPoint = projectWorldPointToViewer(originWorldPoint);
+    if (!originScreenPoint) {
+      hideAxesLabels();
+      return;
+    }
+
+    positionAxisLabel(
+      axisLabels.x,
+      axes.localToWorld(new THREE.Vector3(AXES_HELPER_LENGTH, 0, 0)),
+      originScreenPoint
+    );
+    positionAxisLabel(
+      axisLabels.y,
+      axes.localToWorld(new THREE.Vector3(0, AXES_HELPER_LENGTH, 0)),
+      originScreenPoint
+    );
+    positionAxisLabel(
+      axisLabels.z,
+      axes.localToWorld(new THREE.Vector3(0, 0, AXES_HELPER_LENGTH)),
+      originScreenPoint
+    );
+  }
+
   function resolveStableBoundingBoxAnchorSign(axisKey, cameraComponent, threshold) {
     const nextSign = cameraComponent >= 0 ? 1 : -1;
     const currentSign = boundingBoxDimensionAnchorSigns[axisKey];
@@ -899,11 +1079,9 @@ function initViewer() {
   }
 
   function setPlaceOnSelectedFaceEnabled(isEnabled) {
-    if (!placeOnSelectedFaceButton) {
-      return;
-    }
-
-    placeOnSelectedFaceButton.disabled = !isEnabled;
+    placeOnSelectedPlaneButtons.forEach((button) => {
+      button.disabled = !isEnabled;
+    });
   }
 
   function setAlignBoundingBoxEnabled(isEnabled) {
@@ -1141,7 +1319,7 @@ function initViewer() {
     refreshFaceSelectionMarker();
     setPlaceOnSelectedFaceEnabled(true);
     setFaceSelectionEnabled(false);
-    setStatus("Plane defined from 3 selected points. Click 'Place model on selected surface'.");
+    setStatus("Plane defined from 3 selected points. Choose XY, XZ, or YZ alignment.");
     return true;
   }
   function pickFaceFromClientPosition(clientX, clientY) {
@@ -1188,6 +1366,59 @@ function initViewer() {
     currentModelObject.position.x -= boundsCenter.x;
     currentModelObject.position.z -= boundsCenter.z;
     currentModelObject.position.y -= bounds.min.y;
+    currentModelObject.updateMatrixWorld(true);
+    return true;
+  }
+
+  function getSelectedFaceLocalPoints(modelMatrixWorldInverse) {
+    if (!Array.isArray(selectedFaceSamples) || selectedFaceSamples.length < 3) {
+      return [];
+    }
+
+    const inverseMatrix = modelMatrixWorldInverse
+      ? modelMatrixWorldInverse.clone()
+      : currentModelObject?.matrixWorld?.clone()?.invert();
+    if (!inverseMatrix) {
+      return [];
+    }
+
+    return selectedFaceSamples
+      .map((sample) => {
+        if (!sample?.point) {
+          return null;
+        }
+        return sample.point.clone().applyMatrix4(inverseMatrix);
+      })
+      .filter(Boolean);
+  }
+
+  function positionModelOnCoordinatePlane(targetConfig, selectedPlaneLocalPoints = []) {
+    if (!currentModelObject || !targetConfig || selectedPlaneLocalPoints.length < 3) {
+      return false;
+    }
+
+    currentModelObject.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(currentModelObject);
+    if (bounds.isEmpty()) {
+      return false;
+    }
+
+    const boundsCenter = bounds.getCenter(new THREE.Vector3());
+    targetConfig.centerAxes.forEach((axis) => {
+      currentModelObject.position[axis] -= boundsCenter[axis];
+    });
+    currentModelObject.updateMatrixWorld(true);
+
+    const selectedPlaneWorldCentroid = new THREE.Vector3();
+    selectedPlaneLocalPoints.forEach((point) => {
+      selectedPlaneWorldCentroid.add(point.clone().applyMatrix4(currentModelObject.matrixWorld));
+    });
+    selectedPlaneWorldCentroid.multiplyScalar(1 / selectedPlaneLocalPoints.length);
+
+    const planeOffset = targetConfig.targetNormal.dot(selectedPlaneWorldCentroid);
+    currentModelObject.position.add(
+      targetConfig.targetNormal.clone().multiplyScalar(-planeOffset)
+    );
     currentModelObject.updateMatrixWorld(true);
     return true;
   }
@@ -1406,9 +1637,15 @@ function initViewer() {
     );
   }
 
-  function placeModelOnSelectedFace() {
+  function placeModelOnSelectedPlane(planeKey) {
+    const targetConfig = SURFACE_ALIGNMENT_TARGETS[planeKey];
+    if (!targetConfig) {
+      setStatus("Unknown target coordinate plane.", true);
+      return;
+    }
+
     if (!currentModelObject) {
-      setStatus("Load a model before placing it on a selected surface.", true);
+      setStatus(`Load a model before placing it on the ${targetConfig.label}.`, true);
       return;
     }
 
@@ -1422,23 +1659,31 @@ function initViewer() {
       setStatus("Selected face normal is invalid.", true);
       return;
     }
+    currentModelObject.updateMatrixWorld(true);
+    const selectedPlaneLocalPoints = getSelectedFaceLocalPoints(
+      currentModelObject.matrixWorld.clone().invert()
+    );
+    if (selectedPlaneLocalPoints.length < 3) {
+      setStatus("Selected surface points are invalid.", true);
+      return;
+    }
 
     const alignmentQuaternion = new THREE.Quaternion().setFromUnitVectors(
       sourceNormal,
-      FACE_GROUND_TARGET_NORMAL
+      targetConfig.targetNormal
     );
     currentModelObject.applyQuaternion(alignmentQuaternion);
     currentModelObject.updateMatrixWorld(true);
 
-    if (!centerModelOnGroundPlane()) {
-      setStatus("Unable to place model: invalid model bounds.", true);
+    if (!positionModelOnCoordinatePlane(targetConfig, selectedPlaneLocalPoints)) {
+      setStatus(`Unable to place model on the ${targetConfig.label}: invalid model bounds.`, true);
       return;
     }
 
     refreshModelMetricsAndView();
     clearSelectedFace();
     setFaceSelectionEnabled(false);
-    setStatus("Model placed on selected surface, aligned, and centered on the ground plane.");
+    setStatus(`Model placed on selected surface and aligned to the ${targetConfig.label}.`);
   }
 
   function buildScreenshotFilename() {
@@ -1577,6 +1822,67 @@ function initViewer() {
     });
   }
 
+  function drawAxesLabelsOnScreenshot(context, canvasWidth, canvasHeight) {
+    if (!container || !axisLabelsLayer) {
+      return;
+    }
+
+    if (!isAxesLabelsVisible || axisLabelsLayer.hidden) {
+      return;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    if (containerRect.width <= 0 || containerRect.height <= 0) {
+      return;
+    }
+
+    const scaleX = canvasWidth / containerRect.width;
+    const scaleY = canvasHeight / containerRect.height;
+    const scale = Math.min(scaleX, scaleY);
+
+    Object.values(axisLabels).forEach((labelEntry) => {
+      if (!labelEntry || !labelEntry.element || labelEntry.element.hidden) {
+        return;
+      }
+
+      const labelElement = labelEntry.element;
+      const labelRect = labelElement.getBoundingClientRect();
+      if (labelRect.width <= 0 || labelRect.height <= 0) {
+        return;
+      }
+
+      const labelStyle = window.getComputedStyle(labelElement);
+      const labelX = (labelRect.left - containerRect.left) * scaleX;
+      const labelY = (labelRect.top - containerRect.top) * scaleY;
+      const labelWidth = labelRect.width * scaleX;
+      const labelHeight = labelRect.height * scaleY;
+      const labelRadius = parsePixelValue(labelStyle.borderTopLeftRadius, labelRect.height / 2) * scale;
+      const labelBorderWidth = parsePixelValue(labelStyle.borderTopWidth, 0);
+
+      context.save();
+      drawRoundedRectPath(context, labelX, labelY, labelWidth, labelHeight, labelRadius);
+      context.fillStyle = labelStyle.backgroundColor || "rgba(16, 26, 43, 0.86)";
+      context.fill();
+
+      if (labelBorderWidth > 0) {
+        context.lineWidth = Math.max(1, labelBorderWidth * scale);
+        context.strokeStyle = labelStyle.borderColor || "rgba(255, 255, 255, 0.22)";
+        context.stroke();
+      }
+
+      context.font = buildCanvasFont(labelStyle, 11, scale);
+      context.fillStyle = labelStyle.color || "#f7fbff";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(
+        labelElement.textContent ? labelElement.textContent.trim() : "",
+        labelX + labelWidth * 0.5,
+        labelY + labelHeight * 0.5
+      );
+      context.restore();
+    });
+  }
+
   function drawModelInfoOverlayOnScreenshot(context, canvasWidth, canvasHeight) {
     if (!modelInfoPanel || !container) {
       return;
@@ -1691,6 +1997,9 @@ function initViewer() {
       if (isBoundingBoxDimensionsVisible) {
         syncBoundingBoxDimensionLabels();
       }
+      if (isAxesLabelsVisible) {
+        syncAxesLabels();
+      }
 
       renderer.render(scene, camera);
       const sourceCanvas = renderer.domElement;
@@ -1708,6 +2017,7 @@ function initViewer() {
 
       exportContext.drawImage(sourceCanvas, 0, 0, exportCanvas.width, exportCanvas.height);
       drawBoundingBoxDimensionsOnScreenshot(exportContext, exportCanvas.width, exportCanvas.height);
+      drawAxesLabelsOnScreenshot(exportContext, exportCanvas.width, exportCanvas.height);
       drawModelInfoOverlayOnScreenshot(exportContext, exportCanvas.width, exportCanvas.height);
 
       const imageDataUrl = exportCanvas.toDataURL("image/png");
@@ -2517,6 +2827,7 @@ function initViewer() {
       syncBoundingBoxDimensionLabels();
     }
 
+    syncAxesLabels();
     renderer.render(scene, camera);
     requestAnimationFrame(render);
   }
@@ -2531,6 +2842,7 @@ function initViewer() {
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     renderer.setSize(width, height, false);
+    syncAxesLabels();
   }
 
   window.addEventListener("resize", handleResize);
@@ -2673,11 +2985,11 @@ function initViewer() {
       }
     });
   }
-  if (placeOnSelectedFaceButton) {
-    placeOnSelectedFaceButton.addEventListener("click", () => {
-      placeModelOnSelectedFace();
+  placeOnSelectedPlaneButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      placeModelOnSelectedPlane(button.dataset.targetPlane);
     });
-  }
+  });
 
   if (alignBoundingBoxAxesButton) {
     alignBoundingBoxAxesButton.addEventListener("click", () => {
@@ -2736,6 +3048,12 @@ function initViewer() {
   if (axesToggleButton) {
     axesToggleButton.addEventListener("click", () => {
       setAxesVisibility(!isAxesVisible);
+    });
+  }
+
+  if (axesLabelsToggleButton) {
+    axesLabelsToggleButton.addEventListener("click", () => {
+      setAxesLabelsVisibility(!isAxesLabelsVisible);
     });
   }
 
@@ -2818,6 +3136,7 @@ function initViewer() {
   setGridVisibility(true);
   setSurfaceShadingEnabled(surfaceShadingPreferenceEnabled, { persistPreference: false });
   setAxesVisibility(true);
+  setAxesLabelsVisibility(false);
   setWireframeMode(false);
   setModelInfoVisibility(true);
   setAlignBoundingBoxEnabled(false);
