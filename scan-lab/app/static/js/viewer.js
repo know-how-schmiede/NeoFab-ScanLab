@@ -247,6 +247,7 @@ function initViewer() {
   let currentModelObject = null;
   let currentModelFileSizeBytes = null;
   let currentModelBoundingBoxHelper = null;
+  let selectedFaceSamples = [];
   let selectedFaceNormalWorld = null;
   let faceSelectionMarker = null;
   let isFaceSelectionEnabled = false;
@@ -936,54 +937,160 @@ function initViewer() {
     }
 
     scene.remove(faceSelectionMarker);
+    faceSelectionMarker.traverse((node) => {
+      if (node.geometry) {
+        node.geometry.dispose();
+      }
 
-    if (faceSelectionMarker.line) {
-      faceSelectionMarker.line.geometry.dispose();
-      faceSelectionMarker.line.material.dispose();
-    }
-
-    if (faceSelectionMarker.cone) {
-      faceSelectionMarker.cone.geometry.dispose();
-      faceSelectionMarker.cone.material.dispose();
-    }
+      const materials = Array.isArray(node.material) ? node.material : [node.material];
+      materials.forEach((material) => {
+        if (material && typeof material.dispose === "function") {
+          material.dispose();
+        }
+      });
+    });
 
     faceSelectionMarker = null;
   }
 
   function clearSelectedFace() {
+    selectedFaceSamples = [];
     selectedFaceNormalWorld = null;
     removeFaceSelectionMarker();
     setPlaceOnSelectedFaceEnabled(false);
   }
 
-  function refreshFaceSelectionMarker(origin, normal) {
-    removeFaceSelectionMarker();
-
-    const direction = normal.clone().normalize();
-    if (!Number.isFinite(direction.lengthSq()) || direction.lengthSq() <= 0) {
-      return;
-    }
-
+  function getFaceSelectionMarkerMetrics() {
+    let pointRadius = 2.2;
     let markerLength = 22;
+
     if (currentModelObject) {
       const bounds = new THREE.Box3().setFromObject(currentModelObject);
       if (!bounds.isEmpty()) {
         const size = bounds.getSize(new THREE.Vector3());
-        markerLength = Math.max(18, Math.min(Math.max(size.x, size.y, size.z) * 0.24, 72));
+        const largestDimension = Math.max(size.x, size.y, size.z);
+        pointRadius = Math.max(1.6, Math.min(largestDimension * 0.018, 7));
+        markerLength = Math.max(18, Math.min(largestDimension * 0.24, 72));
       }
     }
 
-    faceSelectionMarker = new THREE.ArrowHelper(
-      direction,
-      origin.clone(),
-      markerLength,
-      0xff8a00,
-      markerLength * 0.28,
-      markerLength * 0.16
-    );
-    scene.add(faceSelectionMarker);
+    return { pointRadius, markerLength };
   }
 
+  function getSelectedFaceSamplesCentroid(samples = selectedFaceSamples) {
+    if (!Array.isArray(samples) || samples.length === 0) {
+      return null;
+    }
+
+    const centroid = new THREE.Vector3();
+    samples.forEach((sample) => {
+      if (sample && sample.point) {
+        centroid.add(sample.point);
+      }
+    });
+
+    return centroid.multiplyScalar(1 / samples.length);
+  }
+
+  function computePlaneFromSelectedFaceSamples(samples = selectedFaceSamples) {
+    if (!Array.isArray(samples) || samples.length < 3) {
+      return null;
+    }
+
+    const [firstSample, secondSample, thirdSample] = samples;
+    if (!firstSample?.point || !secondSample?.point || !thirdSample?.point) {
+      return null;
+    }
+
+    const edgeA = secondSample.point.clone().sub(firstSample.point);
+    const edgeB = thirdSample.point.clone().sub(firstSample.point);
+    const edgeC = thirdSample.point.clone().sub(secondSample.point);
+    const planeNormal = edgeA.clone().cross(edgeB);
+    const maxEdgeLengthSq = Math.max(edgeA.lengthSq(), edgeB.lengthSq(), edgeC.lengthSq());
+    const planeAreaSq = planeNormal.lengthSq();
+
+    if (!Number.isFinite(maxEdgeLengthSq) || maxEdgeLengthSq <= 1e-10) {
+      return null;
+    }
+
+    if (!Number.isFinite(planeAreaSq) || planeAreaSq <= maxEdgeLengthSq * maxEdgeLengthSq * 1e-6) {
+      return null;
+    }
+
+    planeNormal.normalize();
+
+    const averageFaceNormal = new THREE.Vector3();
+    samples.forEach((sample) => {
+      if (sample?.normal && Number.isFinite(sample.normal.lengthSq()) && sample.normal.lengthSq() > 0) {
+        averageFaceNormal.add(sample.normal);
+      }
+    });
+
+    if (averageFaceNormal.lengthSq() > 0) {
+      averageFaceNormal.normalize();
+      if (planeNormal.dot(averageFaceNormal) < 0) {
+        planeNormal.negate();
+      }
+    }
+
+    return {
+      centroid: getSelectedFaceSamplesCentroid(samples),
+      normal: planeNormal,
+    };
+  }
+
+  function refreshFaceSelectionMarker() {
+    removeFaceSelectionMarker();
+
+    if (!Array.isArray(selectedFaceSamples) || selectedFaceSamples.length === 0) {
+      return;
+    }
+
+    const markerGroup = new THREE.Group();
+    const { pointRadius, markerLength } = getFaceSelectionMarkerMetrics();
+    const samplePoints = selectedFaceSamples.map((sample) => sample.point.clone());
+
+    samplePoints.forEach((point) => {
+      const pointMarker = new THREE.Mesh(
+        new THREE.SphereGeometry(pointRadius, 18, 18),
+        new THREE.MeshBasicMaterial({ color: 0xff8a00 })
+      );
+      pointMarker.position.copy(point);
+      markerGroup.add(pointMarker);
+    });
+
+    if (samplePoints.length >= 2) {
+      const linePoints = samplePoints.map((point) => point.clone());
+      if (samplePoints.length === 3 && selectedFaceNormalWorld) {
+        linePoints.push(samplePoints[0].clone());
+      }
+
+      const pathLine = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(linePoints),
+        new THREE.LineBasicMaterial({ color: 0xff8a00 })
+      );
+      markerGroup.add(pathLine);
+    }
+
+    if (samplePoints.length === 3 && selectedFaceNormalWorld) {
+      const direction = selectedFaceNormalWorld.clone().normalize();
+      if (Number.isFinite(direction.lengthSq()) && direction.lengthSq() > 0) {
+        const centroid = getSelectedFaceSamplesCentroid();
+        const normalArrow = new THREE.ArrowHelper(
+          direction,
+          centroid,
+          markerLength,
+          0xff8a00,
+          markerLength * 0.28,
+          markerLength * 0.16
+        );
+        markerGroup.add(normalArrow);
+      }
+    }
+
+    faceSelectionMarker = markerGroup;
+    scene.add(markerGroup);
+  }
   function selectFaceFromIntersection(intersection) {
     if (!intersection || !intersection.face || !intersection.object) {
       return false;
@@ -996,14 +1103,47 @@ function initViewer() {
       return false;
     }
 
-    selectedFaceNormalWorld = worldNormal;
-    refreshFaceSelectionMarker(intersection.point.clone(), worldNormal);
+    if (selectedFaceSamples.length >= 3) {
+      clearSelectedFace();
+    }
+
+    selectedFaceSamples.push({
+      normal: worldNormal,
+      point: intersection.point.clone(),
+    });
+
+    if (selectedFaceSamples.length < 3) {
+      selectedFaceNormalWorld = null;
+      refreshFaceSelectionMarker();
+      setPlaceOnSelectedFaceEnabled(false);
+
+      const remainingSelections = 3 - selectedFaceSamples.length;
+      setStatus(
+        `Surface point ${selectedFaceSamples.length}/3 selected. Select ${remainingSelections} more.`
+      );
+      return true;
+    }
+
+    const selectedPlane = computePlaneFromSelectedFaceSamples();
+    if (!selectedPlane?.normal) {
+      selectedFaceSamples.pop();
+      selectedFaceNormalWorld = null;
+      refreshFaceSelectionMarker();
+      setPlaceOnSelectedFaceEnabled(false);
+      setStatus(
+        "The selected points do not span a valid plane. Choose a different third point.",
+        true
+      );
+      return false;
+    }
+
+    selectedFaceNormalWorld = selectedPlane.normal;
+    refreshFaceSelectionMarker();
     setPlaceOnSelectedFaceEnabled(true);
     setFaceSelectionEnabled(false);
-    setStatus("Face selected. Click 'Place model on selected face'.");
+    setStatus("Plane defined from 3 selected points. Click 'Place model on selected plane'.");
     return true;
   }
-
   function pickFaceFromClientPosition(clientX, clientY) {
     if (!currentModelObject || !renderer || !renderer.domElement) {
       setStatus("Load a model before selecting a face.", true);
@@ -1026,7 +1166,7 @@ function initViewer() {
     });
 
     if (!hit) {
-      setStatus("No model face selected. Click directly on the model surface.", true);
+      setStatus("No model surface selected. Click directly on the model surface.", true);
       return false;
     }
 
@@ -1268,12 +1408,12 @@ function initViewer() {
 
   function placeModelOnSelectedFace() {
     if (!currentModelObject) {
-      setStatus("Load a model before placing it on a selected face.", true);
+      setStatus("Load a model before placing it on a selected plane.", true);
       return;
     }
 
     if (!selectedFaceNormalWorld) {
-      setStatus("Select a face first.", true);
+      setStatus("Select 3 surface points first.", true);
       return;
     }
 
@@ -1298,7 +1438,7 @@ function initViewer() {
     refreshModelMetricsAndView();
     clearSelectedFace();
     setFaceSelectionEnabled(false);
-    setStatus("Model placed on selected face, aligned, and centered on the ground plane.");
+    setStatus("Model placed on selected plane, aligned, and centered on the ground plane.");
   }
 
   function buildScreenshotFilename() {
@@ -2523,16 +2663,16 @@ function initViewer() {
       }
 
       const nextState = !isFaceSelectionEnabled;
+      clearSelectedFace();
       setFaceSelectionEnabled(nextState);
 
       if (nextState) {
-        setStatus("Face selection enabled. Click a model surface.");
+        setStatus("Face selection enabled. Select 3 model surface points to define a plane.");
       } else {
         setStatus("Face selection disabled.");
       }
     });
   }
-
   if (placeOnSelectedFaceButton) {
     placeOnSelectedFaceButton.addEventListener("click", () => {
       placeModelOnSelectedFace();
