@@ -29,6 +29,8 @@ const axesToggleButton = document.getElementById("viewer-toggle-axes");
 const axesLabelsToggleButton = document.getElementById("viewer-toggle-axes-labels");
 const wireframeToggleButton = document.getElementById("viewer-toggle-wireframe");
 const screenshotExportButton = document.getElementById("viewer-export-screenshot");
+const modelExportStlButton = document.getElementById("viewer-export-model-stl");
+const modelExportObjButton = document.getElementById("viewer-export-model-obj");
 const modelInfoToggleButton = document.getElementById("viewer-toggle-model-info");
 const localModelButton = document.getElementById("local-model-button");
 const localModelInput = document.getElementById("local-model-input");
@@ -321,6 +323,7 @@ function initViewer() {
   const pointerNdc = new THREE.Vector2();
   let currentModelObject = null;
   let currentModelFileSizeBytes = null;
+  let currentModelName = "";
   let currentModelBoundingBoxHelper = null;
   const currentModelBoundingBox = new THREE.Box3();
   let isCurrentModelBoundingBoxDirty = true;
@@ -357,6 +360,14 @@ function initViewer() {
     }
 
     resetViewButton.disabled = !isEnabled;
+  }
+
+  function setModelExportEnabled(isEnabled) {
+    [modelExportStlButton, modelExportObjButton].forEach((button) => {
+      if (button) {
+        button.disabled = !isEnabled;
+      }
+    });
   }
 
   function loadViewerDockStateFromStorage() {
@@ -1730,7 +1741,19 @@ function initViewer() {
     setStatus(`Model placed on selected surface and aligned to the ${targetConfig.label}.`);
   }
 
-  function buildScreenshotFilename() {
+  function sanitizeDownloadName(rawName, fallback = "scan-lab-model") {
+    const normalized = typeof rawName === "string" ? rawName.trim() : "";
+    const withoutExtension = normalized.replace(/\.[^.]+$/, "");
+    const safeName = withoutExtension
+      .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-")
+      .replace(/\s+/g, "_")
+      .replace(/-+/g, "-")
+      .replace(/^[-_.]+|[-_.]+$/g, "");
+
+    return safeName || fallback;
+  }
+
+  function buildTimestampSuffix() {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -1739,7 +1762,218 @@ function initViewer() {
     const minutes = String(now.getMinutes()).padStart(2, "0");
     const seconds = String(now.getSeconds()).padStart(2, "0");
 
-    return `scan-lab-viewer-${year}${month}${day}-${hours}${minutes}${seconds}.png`;
+    return `${year}${month}${day}-${hours}${minutes}${seconds}`;
+  }
+
+  function buildModelExportFilename(extension) {
+    const fallbackBaseName = `scan-lab-model-${buildTimestampSuffix()}`;
+    return `${sanitizeDownloadName(currentModelName, fallbackBaseName)}-aligned.${extension}`;
+  }
+
+  function downloadBlobAsFile(blob, filename) {
+    const objectUrl = URL.createObjectURL(blob);
+    const downloadLink = document.createElement("a");
+    downloadLink.href = objectUrl;
+    downloadLink.download = filename;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+  }
+
+  function formatExportNumber(value) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) {
+      return "0";
+    }
+
+    const normalizedValue = Math.abs(numericValue) < 1e-9 ? 0 : numericValue;
+    return normalizedValue.toFixed(6).replace(/\.?0+$/, "");
+  }
+
+  function visitCurrentModelTriangles(visitor = null) {
+    if (!currentModelObject) {
+      return 0;
+    }
+
+    currentModelObject.updateMatrixWorld(true);
+    const vertexA = new THREE.Vector3();
+    const vertexB = new THREE.Vector3();
+    const vertexC = new THREE.Vector3();
+    let triangleCount = 0;
+
+    currentModelObject.traverse((node) => {
+      if (!node.isMesh || !node.geometry || node.visible === false) {
+        return;
+      }
+
+      const geometry = node.geometry;
+      const positionAttribute = geometry.getAttribute("position");
+      if (!positionAttribute || positionAttribute.count < 3) {
+        return;
+      }
+
+      const indexAttribute = geometry.index;
+      if (indexAttribute && indexAttribute.count >= 3) {
+        const triangleLimit = Math.floor(indexAttribute.count / 3);
+        for (let triangleIndex = 0; triangleIndex < triangleLimit; triangleIndex += 1) {
+          const baseIndex = triangleIndex * 3;
+          vertexA.fromBufferAttribute(positionAttribute, indexAttribute.getX(baseIndex)).applyMatrix4(node.matrixWorld);
+          vertexB.fromBufferAttribute(positionAttribute, indexAttribute.getX(baseIndex + 1)).applyMatrix4(node.matrixWorld);
+          vertexC.fromBufferAttribute(positionAttribute, indexAttribute.getX(baseIndex + 2)).applyMatrix4(node.matrixWorld);
+          if (visitor) {
+            visitor(vertexA, vertexB, vertexC, node, triangleCount);
+          }
+          triangleCount += 1;
+        }
+        return;
+      }
+
+      const triangleLimit = Math.floor(positionAttribute.count / 3);
+      for (let triangleIndex = 0; triangleIndex < triangleLimit; triangleIndex += 1) {
+        const baseIndex = triangleIndex * 3;
+        vertexA.fromBufferAttribute(positionAttribute, baseIndex).applyMatrix4(node.matrixWorld);
+        vertexB.fromBufferAttribute(positionAttribute, baseIndex + 1).applyMatrix4(node.matrixWorld);
+        vertexC.fromBufferAttribute(positionAttribute, baseIndex + 2).applyMatrix4(node.matrixWorld);
+        if (visitor) {
+          visitor(vertexA, vertexB, vertexC, node, triangleCount);
+        }
+        triangleCount += 1;
+      }
+    });
+
+    return triangleCount;
+  }
+
+  function createBinaryStlExport() {
+    const triangleCount = visitCurrentModelTriangles();
+    if (triangleCount <= 0) {
+      return null;
+    }
+
+    const buffer = new ArrayBuffer(84 + triangleCount * 50);
+    const view = new DataView(buffer);
+    const headerText = "scan-lab aligned export";
+    for (let index = 0; index < headerText.length; index += 1) {
+      view.setUint8(index, headerText.charCodeAt(index));
+    }
+    view.setUint32(80, triangleCount, true);
+
+    const edgeA = new THREE.Vector3();
+    const edgeB = new THREE.Vector3();
+    const faceNormal = new THREE.Vector3();
+    let offset = 84;
+
+    const writeVector3 = (vector) => {
+      view.setFloat32(offset, vector.x, true);
+      view.setFloat32(offset + 4, vector.y, true);
+      view.setFloat32(offset + 8, vector.z, true);
+      offset += 12;
+    };
+
+    visitCurrentModelTriangles((vertexA, vertexB, vertexC) => {
+      edgeA.subVectors(vertexB, vertexA);
+      edgeB.subVectors(vertexC, vertexA);
+      faceNormal.crossVectors(edgeA, edgeB);
+      if (faceNormal.lengthSq() > 0) {
+        faceNormal.normalize();
+      } else {
+        faceNormal.set(0, 0, 0);
+      }
+
+      writeVector3(faceNormal);
+      writeVector3(vertexA);
+      writeVector3(vertexB);
+      writeVector3(vertexC);
+      view.setUint16(offset, 0, true);
+      offset += 2;
+    });
+
+    return {
+      blob: new Blob([buffer], { type: "model/stl" }),
+      triangleCount,
+    };
+  }
+
+  function createObjExport() {
+    const exportParts = [
+      "# Exported by scan-lab\n",
+      `o ${sanitizeDownloadName(currentModelName, "scan-lab-model")}\n`,
+    ];
+    let vertexIndex = 1;
+    let meshOrdinal = 0;
+    let lastNode = null;
+
+    const triangleCount = visitCurrentModelTriangles((vertexA, vertexB, vertexC, node) => {
+      if (node !== lastNode) {
+        meshOrdinal += 1;
+        exportParts.push(`g ${sanitizeDownloadName(node.name, `mesh_${meshOrdinal}`)}\n`);
+        lastNode = node;
+      }
+
+      exportParts.push(
+        `v ${formatExportNumber(vertexA.x)} ${formatExportNumber(vertexA.y)} ${formatExportNumber(vertexA.z)}\n`,
+        `v ${formatExportNumber(vertexB.x)} ${formatExportNumber(vertexB.y)} ${formatExportNumber(vertexB.z)}\n`,
+        `v ${formatExportNumber(vertexC.x)} ${formatExportNumber(vertexC.y)} ${formatExportNumber(vertexC.z)}\n`,
+        `f ${vertexIndex} ${vertexIndex + 1} ${vertexIndex + 2}\n`
+      );
+      vertexIndex += 3;
+    });
+
+    if (triangleCount <= 0) {
+      return null;
+    }
+
+    return {
+      blob: new Blob(exportParts, { type: "text/plain;charset=utf-8" }),
+      triangleCount,
+    };
+  }
+
+  function exportCurrentModelAsStl() {
+    if (!currentModelObject) {
+      setStatus("Load a model before exporting it as STL.", true);
+      return;
+    }
+
+    try {
+      const exportData = createBinaryStlExport();
+      if (!exportData) {
+        setStatus("No mesh geometry available for STL export.", true);
+        return;
+      }
+
+      downloadBlobAsFile(exportData.blob, buildModelExportFilename("stl"));
+      setStatus(`Model exported as STL (${exportData.triangleCount.toLocaleString("en-US")} triangles).`);
+    } catch (error) {
+      console.error("STL export failed.", error);
+      setStatus("STL export failed.", true);
+    }
+  }
+
+  function exportCurrentModelAsObj() {
+    if (!currentModelObject) {
+      setStatus("Load a model before exporting it as OBJ.", true);
+      return;
+    }
+
+    try {
+      const exportData = createObjExport();
+      if (!exportData) {
+        setStatus("No mesh geometry available for OBJ export.", true);
+        return;
+      }
+
+      downloadBlobAsFile(exportData.blob, buildModelExportFilename("obj"));
+      setStatus(`Model exported as OBJ (${exportData.triangleCount.toLocaleString("en-US")} triangles).`);
+    } catch (error) {
+      console.error("OBJ export failed.", error);
+      setStatus("OBJ export failed.", true);
+    }
+  }
+
+  function buildScreenshotFilename() {
+    return `scan-lab-viewer-${buildTimestampSuffix()}.png`;
   }
 
   function parsePixelValue(rawValue, fallback = 0) {
@@ -2483,6 +2717,7 @@ function initViewer() {
     setAlignBoundingBoxEnabled(false);
     setBoundingBoxToggleEnabled(false);
     setBoundingBoxDimensionsToggleEnabled(false);
+    setModelExportEnabled(false);
 
     if (preserveBoundingBoxDimensionsVisibility && isBoundingBoxDimensionsVisible) {
       hideBoundingBoxDimensionLabels();
@@ -2495,6 +2730,7 @@ function initViewer() {
     currentModelBoundingBox.makeEmpty();
     isCurrentModelBoundingBoxDirty = false;
     currentModelFileSizeBytes = null;
+    currentModelName = "";
 
     if (!currentModelObject) {
       return;
@@ -2655,11 +2891,13 @@ function initViewer() {
     currentModelObject = object3d;
     currentModelExtension = getFileExtension(modelName);
     currentModelFileSizeBytes = fileSizeBytes;
+    currentModelName = modelName;
     scene.add(currentModelObject);
     markCurrentModelBoundingBoxDirty();
     setAlignBoundingBoxEnabled(true);
     setBoundingBoxToggleEnabled(true);
     setBoundingBoxDimensionsToggleEnabled(isBoundingBoxVisible);
+    setModelExportEnabled(true);
 
     const initialSurfaceShadingEnabled = currentModelExtension === "3mf" ? false : surfaceShadingPreferenceEnabled;
     frameObject(currentModelObject);
@@ -3114,6 +3352,18 @@ function initViewer() {
     });
   }
 
+  if (modelExportStlButton) {
+    modelExportStlButton.addEventListener("click", () => {
+      exportCurrentModelAsStl();
+    });
+  }
+
+  if (modelExportObjButton) {
+    modelExportObjButton.addEventListener("click", () => {
+      exportCurrentModelAsObj();
+    });
+  }
+
   if (modelInfoToggleButton) {
     modelInfoToggleButton.addEventListener("click", () => {
       setModelInfoVisibility(!isModelInfoVisible);
@@ -3177,6 +3427,7 @@ function initViewer() {
   setViewerHelpDockOpen(loadViewerHelpDockStateFromStorage(), { persist: false });
 
   setResetViewEnabled(false);
+  setModelExportEnabled(false);
   setAutoRotation(false);
   setGridVisibility(true);
   setSurfaceShadingEnabled(surfaceShadingPreferenceEnabled, { persistPreference: false });

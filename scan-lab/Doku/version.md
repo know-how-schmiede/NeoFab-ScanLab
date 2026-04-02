@@ -15,6 +15,12 @@
 - App kurz pruefen (`/` und `/viewer` erreichbar, Viewer laedt Modelle).
 - Optional: `python -m compileall app.py config.py version.py app` ausfuehren.
 
+## 0.8.0 (2026-04-02)
+- Projektversion auf `0.8.0` erhoeht.
+- Viewer: Bounding-Box-Abmessungen folgen jetzt der dargestellten X/Y/Z-Achsenausrichtung.
+- Viewer: Bounding Box und Modellansicht werden nach Neuausrichtung praezise neu berechnet und aktualisiert; verbessert insbesondere die Masse bei gescannten Modellen.
+- Viewer: Lokalexport des aktuell ausgerichteten Modells als `STL` oder `OBJ` hinzugefuegt.
+
 ## 0.7.5 (2026-04-02)
 - Projektversion auf `0.7.5` erhoeht.
 - Viewer: Farbzuordnung der Bounding-Box-Abmessungen an die Achsenfarben angepasst (`X` blau, `Y` gruen, `Z` rot).
