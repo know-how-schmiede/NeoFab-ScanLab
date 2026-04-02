@@ -19,6 +19,9 @@
 - Projektversion auf `0.7.4` erhoeht.
 - Viewer: Surface-Alignment um plane-spezifische Buttons fuer XY, XZ und YZ erweitert.
 - Viewer: Die Ausrichtung auf eine ausgewaehlte Oberflaeche kann jetzt direkt auf XY-, XZ- oder YZ-Ebene erfolgen.
+- Viewer: Achsenbeschriftungen `X`, `Y` und `Z` am Ende der dargestellten Achsen ergaenzt; per Toggle unten links ein- und ausblendbar, standardmaessig deaktiviert.
+- Viewer: Achsenorientierung und Achsenfarben der Achsenhilfe an die neue X/Y/Z-Darstellung angepasst.
+- Viewer: Das Platzieren auf XY-, XZ- oder YZ-Ebene legt jetzt immer die tatsaechlich ausgewaehlte Flaeche auf die Zielebene, nicht mehr eine parallele Gegenflaeche.
 
 ## 0.7.3 (2026-04-02)
 - Projektversion auf `0.7.3` erhoeht.
